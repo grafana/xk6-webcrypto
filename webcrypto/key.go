@@ -77,7 +77,7 @@ type KeyAlgorithm struct {
 }
 
 type CryptoKeyAlgorithm interface {
-	AesKeyGenParams | RSAHashedKeyGenParams | EcKeyGenParams | HMACKeyGenParams
+	AesKeyGenParams | RSAHashedKeyGenParams | HMACKeyGenParams
 }
 
 // CryptoKeyType represents the type of a key.

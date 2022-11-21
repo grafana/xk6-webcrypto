@@ -222,9 +222,13 @@ func NormalizeAlgorithm(algorithm interface{}, op OperationIdentifier) (interfac
 	}
 
 	// 6.
-	// FIXME: handle this case in later versions
-	err := NewError(0, ImplementationError, fmt.Sprintf("unsupported algorithm type: %s", desiredType))
-	return Algorithm{}, err
+	// FIXME: the case strings should be constants
+	switch desiredType {
+	case "AesKeyGenParams":
+		return AesKeyGenParams{}.From(initialAlg)
+	default:
+		return Algorithm{}, NewError(0, ImplementationError, fmt.Sprintf("unsupported algorithm type: %s", desiredType))
+	}
 }
 
 // As defined by the [specification]
