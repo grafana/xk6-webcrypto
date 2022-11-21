@@ -160,8 +160,47 @@ func (sc *SubtleCrypto) Digest(algorithm goja.Value, data interface{}) *goja.Pro
 //
 // The `keyUsages` parameter is an array of strings indicating what the key can be used for.
 func (sc *SubtleCrypto) GenerateKey(algorithm goja.Value, extractable bool, keyUsages []CryptoKeyUsage) *goja.Promise {
-	// TODO: implementation
-	return nil
+	promise, resolve, reject := sc.makeHandledPromise()
+
+	// 2.
+	// As the algorithm could either be a string or object, we export it to
+	// a interface{}, and let NormalizeAlgorithm() handle the rest.
+	normalizedAlgorithm, err := NormalizeAlgorithm(algorithm.Export(), OperationIdentifierGenerateKey)
+	if err != nil {
+		reject(err)
+		return promise
+	}
+
+	// 5.
+	go func() {
+		var value goja.Value
+		var err error
+
+		// FIXME: params could be an interface here, depending on whatever underlying
+		// implementation to have a Generate method.
+		switch params := normalizedAlgorithm.(type) {
+		case HmacKeyGenParams:
+			value, err = params.GenerateKey(sc.vu.Runtime(), extractable, keyUsages)
+		case EcKeyGenParams:
+			value, err = params.GenerateKey(sc.vu.Runtime(), extractable, keyUsages)
+		case AesKeyGenParams:
+			value, err = params.GenerateKey(sc.vu.Runtime(), extractable, keyUsages)
+		case RsaHashedKeyGenParams:
+			value, err = params.GenerateKey(sc.vu.Runtime(), extractable, keyUsages)
+		default:
+			reject(NewError(0, NotSupportedError, "unsupported algorithm"))
+			return
+		}
+
+		if err != nil {
+			reject(err)
+			return
+		}
+
+		resolve(value)
+	}()
+
+	return promise
 }
 
 // DeriveKey can be used to derive a secret key from a master key.
