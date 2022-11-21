@@ -4,25 +4,43 @@ import (
 	"testing"
 
 	"github.com/stretchr/testify/assert"
+	"github.com/stretchr/testify/require"
 )
 
-// TestSubtleDigest tests that the cryptographic digests produced by
-// the crypto.digest() are conform with the specification's expectations.
-//
-// It stands as the k6 counterpart of the equivalent [WPT test].
-//
-// [WPT test]: https://github.com/web-platform-tests/wpt/blob/master/WebCryptoAPI/digest/digest.https.any.js
-func TestSubtleDigest(t *testing.T) {
+func TestSubtleCryptoGenerateKey(t *testing.T) {
 	t.Parallel()
 
-	ts := newTestSetup(t)
-	digestTestScript, err := CompileFile("./tests", "digest.js")
-	assert.NoError(t, err)
+	t.Run("successes", func(t *testing.T) {
+		t.Parallel()
 
-	gotScriptErr := ts.ev.Start(func() error {
-		_, err := ts.rt.RunProgram(digestTestScript)
-		return err
+		ts := newTestSetup(t)
+
+		gotScriptErr := ts.ev.Start(func() error {
+			successCasesProgram, err := CompileFile("./tests/subtle_crypto", "generateKey.success.js")
+			require.NoError(t, err)
+
+			_, err = ts.rt.RunProgram(successCasesProgram)
+			return err
+		})
+
+		assert.NoError(t, gotScriptErr)
 	})
 
-	assert.NoError(t, gotScriptErr)
+	t.Run("failures", func(t *testing.T) {
+		t.Parallel()
+
+		ts := newTestSetup(t)
+
+		gotScriptErr := ts.ev.Start(func() error {
+			failureCasesProgram, err := CompileFile("./tests/subtle_crypto", "generateKey.failure.js")
+			require.NoError(t, err)
+
+			_, err = ts.rt.RunProgram(failureCasesProgram)
+			require.NoError(t, err)
+
+			return err
+		})
+
+		assert.NoError(t, gotScriptErr)
+	})
 }

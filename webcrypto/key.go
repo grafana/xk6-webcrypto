@@ -2,8 +2,8 @@ package webcrypto
 
 import (
 	"crypto"
-
-	"github.com/dop251/goja"
+	"crypto/ecdsa"
+	"crypto/rsa"
 )
 
 // CryptoKeyPair represents a key pair for an asymmetric cryptography algorithm, also known as
@@ -11,7 +11,7 @@ import (
 //
 // The Private, and Public generic type parameters define the underlying type holding the private,
 // and public key, respectively.
-type CryptoKeyPair[Private, Public KeyHandle] struct {
+type CryptoKeyPair[Private PrivateHandle, Public PublicHandle] struct {
 	// PrivateKey holds the private key. For encryption and decryption algorithms,
 	// this key is used to decrypt. For signing and verification algorithms it is used to sign.
 	PrivateKey CryptoKey[Private] `json:"privateKey"`
@@ -60,14 +60,40 @@ type CryptoKey[H KeyHandle] struct {
 	handle H
 }
 
-// KeyGenerator is an interface that represents a cryptographic key generator.
-type KeyGenerator interface {
-	GenerateKey(rt *goja.Runtime, extractable bool, keyUsages []CryptoKeyUsage) (goja.Value, error)
+// KeyHandle is an interface that represents a cryptographic key handle (data).
+// It is meant to be used as a generic type parameter for CryptoKey.
+type KeyHandle interface {
+	SecretHandle | PrivateHandle | PublicHandle
 }
 
-// KeyHandle represents the underlying type of a key data handle.
-type KeyHandle interface {
-	[]byte | crypto.PrivateKey | crypto.PublicKey
+// SecretHandle is an interface that represents a secret key.
+// It is meant to be used as a generic type parameter for CryptoKey.
+type SecretHandle interface {
+	[]byte
+}
+
+// PrivateHandle is an interface that represents a private key.
+// It is meant to be used as a generic type parameter for CryptoKeyPair.
+type PrivateHandle interface {
+	crypto.PrivateKey | rsa.PrivateKey | ecdsa.PrivateKey
+}
+
+// PublicHandle is an interface that represents a public key.
+// It is meant to be used as a generic type parameter for CryptoKeyPair.
+type PublicHandle interface {
+	crypto.PublicKey | rsa.PublicKey | ecdsa.PublicKey
+}
+
+// CryptoKeyGenerator is an interface that represents a cryptographic key generator.
+// It is meant to be implemented by the various key generation algorithms.
+type CryptoKeyGenerator[H SecretHandle] interface {
+	GenerateKey(extractable bool, keyUsages []CryptoKeyUsage) (*CryptoKey[H], error)
+}
+
+// CryptoKeyPairGenerator is an interface that represents a cryptographic key pair generator.
+// It is meant to be implemented by the various key pair generation algorithms.
+type CryptoKeyPairGenerator[Private PrivateHandle, Public PublicHandle] interface {
+	GenerateKeyPair(extractable bool, keyUsages []CryptoKeyUsage) (*CryptoKeyPair[Private, Public], error)
 }
 
 // KeyAlgorithm specifies the algorithm for a key.

@@ -1,6 +1,8 @@
 package webcrypto
 
-import "github.com/dop251/goja"
+import (
+	"github.com/dop251/goja"
+)
 
 // IsInstanceOf returns true if the given value is an instance of the given constructor
 // This uses the technique described in https://github.com/dop251/goja/issues/379#issuecomment-1164441879
