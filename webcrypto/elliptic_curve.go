@@ -220,7 +220,6 @@ type EcKeyImportParams struct {
 	NamedCurve EllipticCurveKind `json:"namedCurve"`
 }
 
-// EllipticCurveKind represents the kind of elliptic curve that is being used.
 type EllipticCurveKind string
 
 const (
