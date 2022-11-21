@@ -102,7 +102,7 @@ type AESKwParams struct {
 
 // ECDHKeyDeriveParams represents the object that should be passed as the algorithm
 // parameter into `SubtleCrypto.DeriveKey`, when using the ECDH algorithm.
-type ECDHKeyDeriveParams[A any, H KeyHandle] struct {
+type ECDHKeyDeriveParams[A CryptoKeyAlgorithm, H KeyHandle] struct {
 	// Name should be set to AlgorithmKindEcdh.
 	Name AlgorithmIdentifier
 

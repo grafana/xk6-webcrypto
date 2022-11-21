@@ -101,6 +101,7 @@ type KeyAlgorithm struct {
 	Name AlgorithmIdentifier `json:"name"`
 }
 
+// CryptoKeyAlgorithm represents a cryptographic key algorithm.
 type CryptoKeyAlgorithm interface {
 	AesKeyGenParams | RSAHashedKeyGenParams | HMACKeyGenParams
 }
