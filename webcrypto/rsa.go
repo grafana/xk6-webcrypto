@@ -151,6 +151,8 @@ var _ KeyGenerator = &RsaHashedKeyGenParams{}
 
 // GenerateKey implements the KeyGenerator interface for RsaHashedKeyGenParams, and generates
 // a new RSA key pair.
+//
+//nolint:funlen
 func (r RsaHashedKeyGenParams) GenerateKey(
 	rt *goja.Runtime,
 	extractable bool,
@@ -202,7 +204,12 @@ func (r RsaHashedKeyGenParams) GenerateKey(
 	publicKey.Type = PublicCryptoKeyType
 	publicKey.Algorithm = algorithm
 	publicKey.Extractable = true
-	publicKey.Usages = UsageIntersection(keyUsages, []CryptoKeyUsage{VerifyCryptoKeyUsage})
+	// RSA keys have different usages depending on the algorithm
+	if isOAEP {
+		publicKey.Usages = UsageIntersection(keyUsages, []CryptoKeyUsage{EncryptCryptoKeyUsage, WrapKeyCryptoKeyUsage})
+	} else {
+		publicKey.Usages = UsageIntersection(keyUsages, []CryptoKeyUsage{VerifyCryptoKeyUsage})
+	}
 	publicKey.handle = keyPair.Public()
 
 	// 14. 15. 16. 17. 18.
@@ -210,7 +217,12 @@ func (r RsaHashedKeyGenParams) GenerateKey(
 	privateKey.Type = PrivateCryptoKeyType
 	privateKey.Algorithm = algorithm
 	privateKey.Extractable = extractable
-	privateKey.Usages = UsageIntersection(keyUsages, []CryptoKeyUsage{SignCryptoKeyUsage})
+	// RSA keys have different usages depending on the algorithm
+	if isOAEP {
+		privateKey.Usages = UsageIntersection(keyUsages, []CryptoKeyUsage{DecryptCryptoKeyUsage, UnwrapKeyCryptoKeyUsage})
+	} else {
+		privateKey.Usages = UsageIntersection(keyUsages, []CryptoKeyUsage{SignCryptoKeyUsage})
+	}
 	privateKey.handle = keyPair
 
 	// We apply the generateKey 8. step here, as we return a goja.Value
@@ -227,4 +239,99 @@ func (r RsaHashedKeyGenParams) GenerateKey(
 
 	// 22.
 	return rt.ToValue(result), nil
+}
+
+// RsaOaepParams represents the [parameters] for the RSA-OAEP algorithm.
+//
+// [parameters]: https://www.w3.org/TR/WebCryptoAPI/#dfn-RsaOaepParams
+type RsaOaepParams struct {
+	Algorithm
+
+	// Label holds (an ArrayBuffer, a TypedArray, or a DataView) an array of bytes that does not
+	// itself need to be encrypted but which should be bound to the ciphertext.
+	// A digest of the label is part of the input to the encryption operation.
+	//
+	// Unless your application calls for a label, you can just omit this argument
+	// and it will not affect the security of the encryption operation.
+	Label []byte `json:"label"`
+}
+
+// Ensure RsaOaepParams implements the From interface.
+var _ From[map[string]interface{}, RsaOaepParams] = &RsaOaepParams{}
+
+// From produces an output of type Output from the
+// content of the given input.
+func (r RsaOaepParams) From(dict map[string]interface{}) (RsaOaepParams, error) {
+	algorithm, err := Algorithm{}.From(dict)
+	if err != nil {
+		return RsaOaepParams{}, err
+	}
+
+	r.Algorithm = algorithm
+
+	for key, value := range dict {
+		if strings.EqualFold(key, "label") {
+			label, ok := value.(goja.ArrayBuffer)
+			if !ok {
+				return RsaOaepParams{}, NewError(0, SyntaxError, "label is not an ArrayBuffer, nor a TypedArray, nor a DataView")
+			}
+
+			r.Label = label.Bytes()
+			break
+		}
+	}
+
+	return r, nil
+}
+
+// Ensure RsaOaepParams implements the Encrypter interface.
+var _ Encrypter = &RsaOaepParams{}
+
+// Encrypt encrypts the given data using the given key.
+func (r *RsaOaepParams) Encrypt(
+	rt *goja.Runtime,
+	key goja.Value,
+	plaintext []byte,
+) (goja.ArrayBuffer, error) {
+	cryptoKeyPair, ok := key.ToObject(rt).Export().(CryptoKeyPair[crypto.PrivateKey, crypto.PublicKey])
+	if !ok {
+		return goja.ArrayBuffer{}, NewError(0, ImplementationError, "unable to cast key to CryptoKeyPair type")
+	}
+	cryptoKey := cryptoKeyPair.PublicKey
+
+	// 1.
+	if cryptoKey.Type != PublicCryptoKeyType {
+		return goja.ArrayBuffer{}, NewError(0, InvalidAccessError, "key is not a public key")
+	}
+
+	// 2.
+	label := r.Label
+
+	// Extract the parameters the key was generated/imported with.
+	params, ok := cryptoKey.Algorithm.(RsaHashedKeyAlgorithm)
+	if !ok {
+		return goja.ArrayBuffer{}, NewError(0, ImplementationError, "key is not a RSA key")
+	}
+
+	// Fetch the hash function described by the key's algorithm.
+	// As instructed in 3.
+	hash, err := Hasher(params.Hash.Name)
+	if err != nil {
+		return goja.ArrayBuffer{}, NewError(0, ImplementationError, "failed to fetch hash function")
+	}
+
+	// Downcast to the rs.PublicKey type.
+	pub, ok := cryptoKey.handle.(*rsa.PublicKey)
+	if !ok {
+		return goja.ArrayBuffer{}, NewError(0, ImplementationError, "failed to downcast to rsa.PublicKey type")
+	}
+
+	// 3. 5.
+	ciphertext, err := rsa.EncryptOAEP(hash(), rand.Reader, pub, plaintext, label)
+	if err != nil {
+		// 4.
+		return goja.ArrayBuffer{}, NewError(0, OperationError, err.Error())
+	}
+
+	return rt.NewArrayBuffer(ciphertext), nil
 }

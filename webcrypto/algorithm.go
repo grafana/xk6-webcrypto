@@ -232,34 +232,11 @@ func NormalizeAlgorithm(algorithm interface{}, op OperationIdentifier) (interfac
 		return HmacKeyGenParams{}.From(initialAlg)
 	case "RsaHashedKeyGenParams":
 		return RsaHashedKeyGenParams{}.From(initialAlg)
+	case "RsaOaepParams":
+		return RsaOaepParams{}.From(initialAlg)
 	default:
 		return Algorithm{}, NewError(0, ImplementationError, fmt.Sprintf("unsupported algorithm type: %s", desiredType))
 	}
-}
-
-// As defined by the [specification]
-// [specification]: https://w3c.github.io/webcrypto/#algorithm-normalization-internal
-//
-//nolint:gochecknoglobals
-var supportedAlgorithms = map[OperationIdentifier]map[AlgorithmIdentifier]string{
-	OperationIdentifierDigest: {
-		Sha1:   "",
-		Sha256: "",
-		Sha384: "",
-		Sha512: "",
-	},
-	OperationIdentifierGenerateKey: {
-		RSASsaPkcs1v15: "RsaHashedKeyGenParams",
-		RSAPss:         "RsaHashedKeyGenParams",
-		RSAOaep:        "RsaHashedKeyGenParams",
-		ECDSA:          "EcKeyGenParams",
-		ECDH:           "EcKeyGenParams",
-		HMAC:           "HmacKeyGenParams",
-		AESCtr:         "AesKeyGenParams",
-		AESCbc:         "AesKeyGenParams",
-		AESGcm:         "AesKeyGenParams",
-		AESKw:          "AesKeyGenParams",
-	},
 }
 
 // IsAlgorithm returns true if the given algorithm is supported by the library.
@@ -312,6 +289,34 @@ func IsHashAlgorithm(algorithm string) bool {
 	}
 
 	return false
+}
+
+// As defined by the [specification]
+// [specification]: https://w3c.github.io/webcrypto/#algorithm-normalization-internal
+//
+//nolint:gochecknoglobals
+var supportedAlgorithms = map[OperationIdentifier]map[AlgorithmIdentifier]string{
+	OperationIdentifierDigest: {
+		Sha1:   "",
+		Sha256: "",
+		Sha384: "",
+		Sha512: "",
+	},
+	OperationIdentifierGenerateKey: {
+		RSASsaPkcs1v15: "RsaHashedKeyGenParams",
+		RSAPss:         "RsaHashedKeyGenParams",
+		RSAOaep:        "RsaHashedKeyGenParams",
+		ECDSA:          "EcKeyGenParams",
+		ECDH:           "EcKeyGenParams",
+		HMAC:           "HmacKeyGenParams",
+		AESCtr:         "AesKeyGenParams",
+		AESCbc:         "AesKeyGenParams",
+		AESGcm:         "AesKeyGenParams",
+		AESKw:          "AesKeyGenParams",
+	},
+	OperationIdentifierEncrypt: {
+		RSAOaep: "RsaOaepParams",
+	},
 }
 
 // OperationIdentifier represents the name of an operation.

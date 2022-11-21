@@ -90,7 +90,7 @@ func (e EcKeyGenParams) From(dict map[string]interface{}) (EcKeyGenParams, error
 				return EcKeyGenParams{}, NewError(0, NotSupportedError, "unsupported elliptic curve name")
 			}
 
-			params.NamedCurve = EllipticCurveKind(namedCurve)
+			params.NamedCurve = namedCurve
 			namedCurveFound = true
 			continue
 		}
@@ -147,7 +147,7 @@ func (e *EcKeyGenParams) GenerateKey(
 	// Check if the namedCurve is supported by the implementation.
 	// Fetch the proper curve parameters.
 	// Produce a random key pair using the curve parameters.
-	if !IsEllipticCurve(string(e.NamedCurve)) {
+	if !IsEllipticCurve(e.NamedCurve) {
 		// 3.
 		return nil, NewError(0, OperationError, "unsupported elliptic curve name")
 	}
@@ -219,7 +219,8 @@ type EcKeyImportParams struct {
 	NamedCurve EllipticCurveKind `json:"namedCurve"`
 }
 
-type EllipticCurveKind string
+// EllipticCurveKind represents the name of an elliptic curve.
+type EllipticCurveKind = string
 
 const (
 	// EllipticCurveKindP256 represents the P-256 curve.
@@ -236,11 +237,11 @@ const (
 // false otherwise.
 func IsEllipticCurve(name string) bool {
 	switch name {
-	case string(EllipticCurveKindP256):
+	case EllipticCurveKindP256:
 		return true
-	case string(EllipticCurveKindP384):
+	case EllipticCurveKindP384:
 		return true
-	case string(EllipticCurveKindP521):
+	case EllipticCurveKindP521:
 		return true
 	default:
 		return false
