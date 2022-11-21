@@ -38,6 +38,25 @@ func newTestSetup(t testing.TB) testSetup {
 	rt := goja.New()
 	rt.SetFieldNameMapper(goja.TagFieldNameMapper("json", true))
 
+	// We compile the WPT helpers script content into a goja Program
+	helpersProgram, err := CompileFile("./tests/utils", "helpers.js")
+	require.NoError(t, err)
+
+	// We execute the helpers script in the runtime which effectively
+	// loads the helper functions into the runtime
+	_, err = rt.RunProgram(helpersProgram)
+	require.NoError(t, err)
+
+	// We compile the WPT assert script content into a goja Program
+	// We compile the helpers script content into a goja Program
+	assertProgram, err := CompileFile("./tests/utils", "assert.js")
+	require.NoError(t, err)
+
+	// We execute the helpers script in the runtime which effectively
+	// loads the helper functions into the runtime
+	_, err = rt.RunProgram(assertProgram)
+	require.NoError(t, err)
+
 	root, err := lib.NewGroup("", nil)
 	require.NoError(t, err)
 
