@@ -230,6 +230,8 @@ func NormalizeAlgorithm(algorithm interface{}, op OperationIdentifier) (interfac
 		return EcKeyGenParams{}.From(initialAlg)
 	case "HmacKeyGenParams":
 		return HmacKeyGenParams{}.From(initialAlg)
+	case "RsaHashedKeyGenParams":
+		return RsaHashedKeyGenParams{}.From(initialAlg)
 	default:
 		return Algorithm{}, NewError(0, ImplementationError, fmt.Sprintf("unsupported algorithm type: %s", desiredType))
 	}
