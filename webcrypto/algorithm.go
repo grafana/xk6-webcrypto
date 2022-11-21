@@ -226,6 +226,8 @@ func NormalizeAlgorithm(algorithm interface{}, op OperationIdentifier) (interfac
 	switch desiredType {
 	case "AesKeyGenParams":
 		return AesKeyGenParams{}.From(initialAlg)
+	case "EcKeyGenParams":
+		return EcKeyGenParams{}.From(initialAlg)
 	default:
 		return Algorithm{}, NewError(0, ImplementationError, fmt.Sprintf("unsupported algorithm type: %s", desiredType))
 	}

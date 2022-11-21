@@ -94,58 +94,20 @@ type AESGcmParams struct {
 	TagLength int
 }
 
+// AESKwParams represents the object that should be passed as the algorithm parameter
 type AESKwParams struct {
 	// Name should be set to AlgorithmKindAesKw.
 	Name AlgorithmIdentifier
 }
 
-// The ECDSAParams represents the object that should be passed as the algorithm
-// parameter into `SubtleCrypto.Sign` or `SubtleCrypto.Verify“ when using the
-// ECDSA algorithm.
-type ECDSAParams struct {
-	// Name should be set to AlgorithmKindEcdsa.
-	Name AlgorithmIdentifier
-
-	// Hash identifies the name of the digest algorithm to use.
-	// You can use any of the following:
-	//   * [Sha256]
-	//   * [Sha384]
-	//   * [Sha512]
-	Hash AlgorithmIdentifier
-}
-
-// ECKeyGenParams  represents the object that should be passed as the algorithm
-// parameter into `SubtleCrypto.GenerateKey`, when generating any
-// elliptic-curve-based key pair: that is, when the algorithm is identified
-// as either of AlgorithmKindEcdsa or AlgorithmKindEcdh.
-type ECKeyGenParams struct {
-	// Name should be set to AlgorithmKindEcdsa or AlgorithmKindEcdh.
-	Name AlgorithmIdentifier
-
-	// NamedCurve holds (a String) the name of the curve to use.
-	// You can use any of the following: CurveKindP256, CurveKindP384, or CurveKindP521.
-	NamedCurve EllipticCurveKind
-}
-
-// ECKeyImportParams represents the object that should be passed as the algorithm parameter
-// into `SubtleCrypto.ImportKey` or `SubtleCrypto.UnwrapKey`, when generating any elliptic-curve-based
-// key pair: that is, when the algorithm is identified as either of ECDSA or ECDH.
-type ECKeyImportParams struct {
-	// Name should be set to AlgorithmKindEcdsa or AlgorithmKindEcdh.
-	Name AlgorithmIdentifier
-
-	// NamedCurve holds (a String) the name of the elliptic curve to use.
-	NamedCurve EllipticCurveKind
-}
-
 // ECDHKeyDeriveParams represents the object that should be passed as the algorithm
 // parameter into `SubtleCrypto.DeriveKey`, when using the ECDH algorithm.
-type ECDHKeyDeriveParams[Handle []byte] struct {
+type ECDHKeyDeriveParams[A CryptoKeyAlgorithm, H KeyHandle] struct {
 	// Name should be set to AlgorithmKindEcdh.
 	Name AlgorithmIdentifier
 
 	// Public holds (a CryptoKey) the public key of the other party.
-	Public CryptoKey[Handle]
+	Public CryptoKey[H]
 }
 
 // HKDFParams represents the object that should be passed as the algorithm parameter

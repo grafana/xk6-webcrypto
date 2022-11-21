@@ -56,7 +56,6 @@ type CryptoKey[H KeyHandle] struct {
 
 	// handle is an internal slot, holding the underlying key data.
 	// See [specification](https://www.w3.org/TR/WebCryptoAPI/#dfnReturnLink-0).
-	//nolint:unused
 	handle H
 }
 
@@ -76,6 +75,7 @@ type KeyAlgorithm struct {
 	Name AlgorithmIdentifier `json:"name"`
 }
 
+// CryptoKeyAlgorithm represents a cryptographic key algorithm.
 type CryptoKeyAlgorithm interface {
 	AesKeyGenParams | RSAHashedKeyGenParams | HMACKeyGenParams
 }

@@ -16,7 +16,7 @@ type AesKeyAlgorithm struct {
 	Length int `json:"length"`
 }
 
-// AESKeyGenParams represents the object that should be passed as
+// AesKeyGenParams represents the object that should be passed as
 // the algorithm parameter into `SubtleCrypto.generateKey`, when generating
 // an AES key: that is, when the algorithm is identified as any
 // of AES-CBC, AES-CTR, AES-GCM, or AES-KW.
@@ -48,7 +48,7 @@ func (a AesKeyGenParams) From(dict map[string]interface{}) (AesKeyGenParams, err
 				return AesKeyGenParams{}, NewError(0, NotSupportedError, fmt.Sprintf("algorithm %s is not supported", name))
 			}
 
-			a.Name = AlgorithmIdentifier(name)
+			a.Name = name
 			nameFound = true
 			continue
 		}
@@ -80,14 +80,24 @@ func (a AesKeyGenParams) From(dict map[string]interface{}) (AesKeyGenParams, err
 var _ KeyGenerator = &AesKeyGenParams{}
 
 // GenerateKey generates a new AES key.
-func (a *AesKeyGenParams) GenerateKey(rt *goja.Runtime, extractable bool, keyUsages []CryptoKeyUsage) (goja.Value, error) {
-	if a.Algorithm.Name != AESCbc && a.Algorithm.Name != AESCtr && a.Algorithm.Name != AESGcm && a.Algorithm.Name != AESKw {
+func (a *AesKeyGenParams) GenerateKey(
+	rt *goja.Runtime,
+	extractable bool,
+	keyUsages []CryptoKeyUsage,
+) (goja.Value, error) {
+	var (
+		isCBC = a.Algorithm.Name == AESCbc
+		isCTR = a.Algorithm.Name == AESCtr
+		isGCM = a.Algorithm.Name == AESGcm
+		isKW  = a.Algorithm.Name == AESKw
+	)
+	if !isCBC && !isCTR && !isGCM && !isKW {
 		return nil, NewError(0, ImplementationError, "invalid algorithm")
 	}
 
 	// 1.
 	for _, usage := range keyUsages {
-		if strings.EqualFold(string(a.Algorithm.Name), AESKw) {
+		if strings.EqualFold(a.Algorithm.Name, AESKw) {
 			switch usage {
 			case WrapKeyCryptoKeyUsage, UnwrapKeyCryptoKeyUsage:
 			default:
@@ -110,8 +120,7 @@ func (a *AesKeyGenParams) GenerateKey(rt *goja.Runtime, extractable bool, keyUsa
 	// 3.
 	// FIXME: verify if there are different constraints on the key format depending on the AES flavor
 	randomKey := make([]byte, a.Length/8)
-	_, err := rand.Read(randomKey)
-	if err != nil {
+	if _, err := rand.Read(randomKey); err != nil {
 		// 4.
 		return nil, NewError(0, OperationError, "could not generate random key")
 	}
