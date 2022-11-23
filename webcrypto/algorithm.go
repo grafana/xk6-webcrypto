@@ -314,6 +314,35 @@ func IsHashAlgorithm(algorithm string) bool {
 	return false
 }
 
+// As defined by the [specification]
+// [specification]: https://w3c.github.io/webcrypto/#algorithm-normalization-internal
+var supportedAlgorithms = map[OperationIdentifier]map[AlgorithmIdentifier]string{
+	OperationIdentifierDigest: {
+		AlgorithmIdentifier(Sha1):   "",
+		AlgorithmIdentifier(Sha256): "",
+		AlgorithmIdentifier(Sha384): "",
+		AlgorithmIdentifier(Sha512): "",
+	},
+	OperationIdentifierGenerateKey: {
+		RSASsaPkcs1v15: "RsaHashedKeyGenParams",
+		RSAPss:         "RsaHashedKeyGenParams",
+		RSAOaep:        "RsaHashedKeyGenParams",
+		ECDSA:          "EcKeyGenParams",
+		ECDH:           "EcKeyGenParams",
+		HMAC:           "HmacKeyGenParams",
+		AESCtr:         "AesKeyGenParams",
+		AESCbc:         "AesKeyGenParams",
+		AESGcm:         "AesKeyGenParams",
+		AESKw:          "AesKeyGenParams",
+	},
+	OperationIdentifierDecrypt: {
+		RSAOaep: "RsaOaepParams",
+		AESCbc:  "AesCbcParams",
+		AESGcm:  "AesGcmParams",
+		AESCtr:  "AesCtrParams",
+	},
+}
+
 // OperationIdentifier represents the name of an operation.
 //
 // Note that it is defined as an alias of string, instead of a dedicated type,

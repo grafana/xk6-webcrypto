@@ -61,6 +61,11 @@ func (sc *SubtleCrypto) Decrypt(algorithm goja.Value, key CryptoKey[[]byte], dat
 	return nil
 }
 
+// Decrypter is an interface that can be implemented by algorithms that can decrypt data.
+type Decrypter interface {
+	Decrypt(rt *goja.Runtime, key goja.Value, data []byte) (goja.ArrayBuffer, error)
+}
+
 // Sign generates a digital signature.
 //
 // It takes as its arguments a key to sign with, some algorithm-specific parameters, and the data to sign.
