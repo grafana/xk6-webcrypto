@@ -228,3 +228,76 @@ func (r RsaHashedKeyGenParams) GenerateKey(
 	// 22.
 	return rt.ToValue(result), nil
 }
+
+type RsaOaepParams struct {
+	Algorithm
+
+	// Label holds (an ArrayBuffer, a TypedArray, or a DataView) an array of bytes that does not
+	// itself need to be encrypted but which should be bound to the ciphertext.
+	// A digest of the label is part of the input to the encryption operation.
+	//
+	// Unless your application calls for a label, you can just omit this argument
+	// and it will not affect the security of the encryption operation.
+	Label []byte `json:"label"`
+}
+
+// Ensure RsaOaepParams implements the From interface.
+var _ From[map[string]interface{}, RsaOaepParams] = &RsaOaepParams{}
+
+// From produces an output of type Output from the
+// content of the given input.
+func (r RsaOaepParams) From(dict map[string]interface{}) (RsaOaepParams, error) {
+	algorithm, err := Algorithm{}.From(dict)
+	if err != nil {
+		return RsaOaepParams{}, err
+	}
+
+	r.Algorithm = algorithm
+
+	for key, value := range dict {
+		if strings.EqualFold(key, "label") {
+			label, ok := value.(goja.ArrayBuffer)
+			if !ok {
+				return RsaOaepParams{}, NewWebCryptoError(0, SyntaxError, "label is not an ArrayBuffer, nor a TypedArray, nor a DataView")
+			}
+
+			r.Label = label.Bytes()
+			break
+		}
+	}
+
+	return r, nil
+}
+
+// Ensure RsaOaepParams implements the Decrypter interface.
+var _ Decrypter = &RsaOaepParams{}
+
+// Decrypt decrypts the given ciphertext using the given key.
+func (r *RsaOaepParams) Decrypt(rt *goja.Runtime, key goja.Value, ciphertext []byte) (goja.ArrayBuffer, error) {
+	cryptoKeyPair := key.Export().(CryptoKeyPair[crypto.PrivateKey, crypto.PublicKey])
+	cryptoKey := cryptoKeyPair.PrivateKey
+
+	// 1.
+	if cryptoKey.Type != PrivateCryptoKeyType {
+		return goja.ArrayBuffer{}, NewWebCryptoError(0, InvalidAccessError, "key is not a private key")
+	}
+
+	// 2.
+	label := r.Label
+
+	// Fetch the hash function described by the key's algorithm.
+	// As instructed in 3.
+	hash, err := Hasher(cryptoKey.Algorithm.(RsaHashedKeyAlgorithm).Hash.Name)
+	if err != nil {
+		return goja.ArrayBuffer{}, NewWebCryptoError(0, ImplementationError, "failed to fetch hash function")
+	}
+
+	// 3. 5.
+	plaintext, err := rsa.DecryptOAEP(hash(), rand.Reader, cryptoKey.handle.(*rsa.PrivateKey), ciphertext, label)
+	if err != nil {
+		// 4.
+		return goja.ArrayBuffer{}, NewWebCryptoError(0, OperationError, err.Error())
+	}
+
+	return rt.NewArrayBuffer(plaintext), nil
+}
