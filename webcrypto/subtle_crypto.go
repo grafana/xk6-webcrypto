@@ -87,8 +87,16 @@ func (sc *SubtleCrypto) Encrypt(algorithm goja.Value, key goja.Value, data goja.
 		var value goja.ArrayBuffer
 		var err error
 
+		// FIXME: if we could ensure the returned value of normalizeAlgorithm
+		// is an Encrypter, there's no need for a switch anymore!
 		switch params := normalizedAlgorithm.(type) {
 		case RsaOaepParams:
+			value, err = params.Encrypt(sc.vu.Runtime(), key, bytesCopy)
+		case AesCbcParams:
+			value, err = params.Encrypt(sc.vu.Runtime(), key, bytesCopy)
+		case AesGcmParams:
+			value, err = params.Encrypt(sc.vu.Runtime(), key, bytesCopy)
+		case AesCtrParams:
 			value, err = params.Encrypt(sc.vu.Runtime(), key, bytesCopy)
 		default:
 			reject(NewError(0, NotSupportedError, "Unsupported algorithm"))

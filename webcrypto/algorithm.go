@@ -234,6 +234,12 @@ func NormalizeAlgorithm(algorithm interface{}, op OperationIdentifier) (interfac
 		return RsaHashedKeyGenParams{}.From(initialAlg)
 	case "RsaOaepParams":
 		return RsaOaepParams{}.From(initialAlg)
+	case "AesCbcParams":
+		return AesCbcParams{}.From(initialAlg)
+	case "AesGcmParams":
+		return AesGcmParams{}.From(initialAlg)
+	case "AesCtrParams":
+		return AesCtrParams{}.From(initialAlg)
 	default:
 		return Algorithm{}, NewError(0, ImplementationError, fmt.Sprintf("unsupported algorithm type: %s", desiredType))
 	}
@@ -316,6 +322,9 @@ var supportedAlgorithms = map[OperationIdentifier]map[AlgorithmIdentifier]string
 	},
 	OperationIdentifierEncrypt: {
 		RSAOaep: "RsaOaepParams",
+		AESCbc:  "AesCbcParams",
+		AESGcm:  "AesGcmParams",
+		AESCtr:  "AesCtrParams",
 	},
 }
 

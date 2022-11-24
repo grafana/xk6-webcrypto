@@ -10,19 +10,6 @@ type From[Input, Output any] interface {
 	From(Input) (Output, error)
 }
 
-// AESCbcParams represents the object that should be passed as the algorithm parameter
-// into `SubtleCrypto.Encrypt`, `SubtleCrypto.Decrypt`, `SubtleCrypto.WrapKey`, or
-// `SubtleCrypto.UnwrapKey`, when using the AES-CBC algorithm.
-type AESCbcParams struct {
-	// Name should be set to AES-CBC.
-	Name string
-
-	// Iv holds (an ArrayBuffer, a TypedArray, or a DataView) the initialization vector.
-	// Must be 16 bytes, unpredictable, and preferably cryptographically random.
-	// However, it need not be secret (for example, it may be transmitted unencrypted along with the ciphertext).
-	Iv []byte
-}
-
 // AESCtrParams represents the object that should be passed as the algorithm parameter
 // into `SubtleCrypto.Encrypt`, `SubtleCrypto.Decrypt`, `SubtleCrypto.WrapKey`, or
 // `SubtleCrypto.UnwrapKey`, when using the AES-CTR algorithm.
