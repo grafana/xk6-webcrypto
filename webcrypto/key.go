@@ -95,7 +95,8 @@ type CryptoKeyPairGenerator[Private PrivateHandle, Public PublicHandle] interfac
 	GenerateKeyPair(extractable bool, keyUsages []CryptoKeyUsage) (*CryptoKeyPair[Private, Public], error)
 }
 
-// KeyAlgorithm specifies the algorithm for a key.
+// KeyAlgorithm represents information about
+// the contents of a given CryptoKey object.
 type KeyAlgorithm struct {
 	// Name of the algorithm.
 	Name AlgorithmIdentifier `json:"name"`

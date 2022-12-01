@@ -35,9 +35,7 @@ func NewAlgorithm(rt *goja.Runtime, v goja.Value) (Algorithm, error) {
 		return Algorithm{}, err
 	}
 
-	if err := params.Normalize(); err != nil {
-		return Algorithm{}, err
-	}
+	params.Normalize()
 
 	return params, nil
 }
@@ -58,9 +56,8 @@ func (a Algorithm) Validate() error {
 
 // Normalize normalizes the Algorithm instance. It implements the Normalizer
 // interface.
-func (a *Algorithm) Normalize() error {
+func (a *Algorithm) Normalize() {
 	a.Name = NormalizeAlgorithmName(a.Name)
-	return nil
 }
 
 // AlgorithmIdentifier represents the name of an algorithm.
