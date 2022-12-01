@@ -233,3 +233,216 @@ func (r RsaHashedKeyGenParams) GenerateKeyPair(
 	// 22.
 	return &result, nil
 }
+
+// RsaHashedImportParams represents the parameters for importing an RSA key pair.
+//
+// See: https://www.w3.org/TR/WebCryptoAPI/#RsaHashedImportParams-dictionary
+type RsaHashedImportParams struct {
+	Algorithm
+
+	// Hash contains the hash algorithm to use.
+	Hash HashAlgorithmIdentifier `json:"hash"`
+}
+
+//nolint:unused,deadcode
+func importRSAKey(
+	rt *goja.Runtime,
+	format KeyFormat,
+	keyData goja.Value,
+	normalizedAlgorithm RsaHashedImportParams,
+	extractable bool,
+	usages []CryptoKeyUsage,
+) (goja.Value, error) {
+	var result goja.Value
+	var err error
+
+	switch format {
+	case SpkiKeyFormat:
+		result, err = importRSAKeyFromSpki(rt, keyData, normalizedAlgorithm, extractable, usages)
+	case Pkcs8KeyFormat:
+		result, err = importRSAKeyFromPkcs8(rt, keyData, normalizedAlgorithm, extractable, usages)
+	case JwkKeyFormat:
+		result, err = importRSAKeyFromJwk(rt, keyData, normalizedAlgorithm, extractable, usages)
+	default:
+		break
+	}
+
+	if err != nil {
+		return nil, err
+	}
+
+	return result, nil
+}
+
+//nolint:unused
+func importRSAKeyFromSpki(
+	rt *goja.Runtime,
+	keyData goja.Value,
+	normalizedAlgorithm RsaHashedImportParams,
+	extractable bool,
+	usages []CryptoKeyUsage,
+) (goja.Value, error) {
+	// // 1.
+	// var data []byte
+	// err := rt.ExportTo(keyData, &data)
+	// if err != nil {
+	// 	return nil, NewError(0, DataError, "could not export key data")
+	// }
+
+	// // 2.1.
+	// if !ContainsOnly(usages, VerifyCryptoKeyUsage) {
+	// 	return nil, NewError(0, SyntaxError, "invalid key usages")
+	// }
+
+	// // This works assuming the x509.ParsePKIXPublicKey function implements
+	// // the steps 2.2. to 2.7.
+
+	// // 2.8.
+	// k, err := x509.ParsePKIXPublicKey(data)
+	// if err != nil {
+	// 	// 2.9.
+	// 	return nil, NewError(0, DataError, "could not parse key data")
+	// }
+	// pubKey := k.(*rsa.PublicKey)
+
+	// // 2.10.
+	// key := CryptoKey[*rsa.PublicKey]{
+	// 	handle: pubKey,
+	// }
+
+	// // 2.11.
+	// key.Type = PublicCryptoKeyType
+
+	// return rt.ToValue(key), nil
+	return nil, NewError(0, OperationError, "importing RSA keys from SPKI is not supported")
+}
+
+//nolint:unused
+func importRSAKeyFromPkcs8(
+	rt *goja.Runtime,
+	keyData goja.Value,
+	normalizedAlgorithm RsaHashedImportParams,
+	extractable bool,
+	usages []CryptoKeyUsage,
+) (goja.Value, error) {
+	// // 1.
+	// var data []byte
+	// err := rt.ExportTo(keyData, &data)
+	// if err != nil {
+	// 	return nil, NewError(0, DataError, "could not export key data")
+	// }
+
+	// // 2.1.
+	// if !ContainsOnly(usages, SignCryptoKeyUsage) {
+	// 	return nil, NewError(0, SyntaxError, "invalid key usages")
+	// }
+
+	// // 2.2.
+	// k, err := x509.ParsePKCS8PrivateKey(data)
+	// if err != nil {
+	// 	// 2.3.
+	// 	return nil, NewError(0, DataError, "could not parse key data")
+	// }
+	// privKey := k.(*rsa.PrivateKey)
+
+	// // 2.10.
+	// key := CryptoKey[*rsa.PrivateKey]{
+	// 	handle: privKey,
+	// }
+
+	// // 2.11.
+	// key.Type = PrivateCryptoKeyType
+
+	// return rt.ToValue(key), nil
+
+	return nil, NewError(0, NotSupportedError, "importing RSA keys from PKCS#8 is not supported")
+}
+
+//nolint:funlen,unused
+func importRSAKeyFromJwk(
+	rt *goja.Runtime,
+	keyData goja.Value,
+	normalizedAlgorithm RsaHashedImportParams,
+	extractable bool,
+	usages []CryptoKeyUsage,
+) (goja.Value, error) {
+	var result goja.Value
+
+	// // 2.1.
+	// var jwk JSONWebKey
+	// err := rt.ExportTo(keyData, &jwk)
+	// if err != nil {
+	// 	return nil, NewError(0, DataError, "could not import data as JSON Web Key")
+	// }
+
+	// // 2.2.
+	// if jwk.D != "" && jwk.D != SignCryptoKeyUsage || jwk.D == "" && !Contains(usages, VerifyCryptoKeyUsage) {
+	// 	return nil, NewError(0, SyntaxError, "invalid key usages")
+	// }
+
+	// // 2.3.
+	// if jwk.KeyType != "RSA" {
+	// 	return nil, NewError(0, DataError, "invalid key type")
+	// }
+
+	// // 2.4.
+	// if len(usages) > 0 && jwk.Use != "" && strings.EqualFold(jwk.Use, "sig") {
+	// 	return nil, NewError(0, DataError, "invalid key usages")
+	// }
+
+	// // 2.5.
+	// if jwk.KeyOps != nil {
+	// 	for _, usage := range usages {
+	// 		if !Contains(jwk.KeyOps, usage) {
+	// 			return nil, NewError(0, DataError, "invalid key usage")
+	// 		}
+	// 	}
+	// }
+
+	// // 2.6.
+	// if !jwk.Extractable && extractable {
+	// 	return nil, NewError(0, DataError, "invalid key extractability")
+	// }
+
+	// // 2.7.
+	// var hash HashAlgorithmIdentifier
+
+	// // 2.8.
+	// // FIXME: jwk.Algorithm should be a pointer to account for the "alg" field not being present.
+	// switch jwk.Algorithm {
+	// case "":
+	// 	break
+	// case "RS1":
+	// 	hash = Sha1
+	// case "RS256":
+	// 	hash = Sha256
+	// case "RS384":
+	// 	hash = Sha384
+	// case "RS512":
+	// 	hash = Sha512
+	// default:
+	// 	return nil, NewError(0, DataError, "invalid key algorithm")
+	// }
+
+	// // 2.9.
+	// if hash != "" {
+	// 	// 2.9.1.
+	// 	normalizedHash, err := NormalizeAlgorithm(hash, OperationIdentifierDigest)
+	// 	if err != nil {
+	// 		return nil, err
+	// 	}
+
+	// 	// 2.9.2.
+	// 	if normalizedHash != normalizedAlgorithm.Hash {
+	// 		return nil, NewError(0, DataError, "invalid key algorithm")
+	// 	}
+	// }
+
+	// // 2.10.
+	// if jwk.D != "" {
+	// 	// TODO: implement this.
+	// }
+
+	// TODO: implement this.
+	return result, NewError(0, NotSupportedError, "importing RSA keys from JWK is not yet supported")
+}
