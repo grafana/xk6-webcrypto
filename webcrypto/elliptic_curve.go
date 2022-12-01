@@ -5,9 +5,26 @@ import (
 	"crypto/ecdsa"
 	"crypto/elliptic"
 	"crypto/rand"
+	"crypto/x509"
+	"encoding/base64"
+	"math/big"
 	"strings"
 
 	"github.com/dop251/goja"
+)
+
+// EllipticCurveKind represents the kind of elliptic curve that is being used.
+type EllipticCurveKind string
+
+const (
+	// EllipticCurveKindP256 represents the P-256 curve.
+	EllipticCurveKindP256 EllipticCurveKind = "P-256"
+
+	// EllipticCurveKindP384 represents the P-384 curve.
+	EllipticCurveKindP384 EllipticCurveKind = "P-384"
+
+	// EllipticCurveKindP521 represents the P-521 curve.
+	EllipticCurveKindP521 EllipticCurveKind = "P-521"
 )
 
 // EcKeyAlgorithm represents the Elliptic Curve key algorithm.
@@ -55,6 +72,10 @@ var _ From[map[string]interface{}, EcKeyGenParams] = EcKeyGenParams{}
 
 // From implements the From interface for EcKeyGenParams, and initializes the
 // EcKeyGenParams instance from a map[string]interface{}.
+//
+// FIXME: this is a duplicate of EcKeyImportParams.From, and should be refactored.
+//
+//nolint:dupl
 func (e EcKeyGenParams) From(dict map[string]interface{}) (EcKeyGenParams, error) {
 	var params EcKeyGenParams
 	nameFound := false
@@ -219,19 +240,397 @@ type EcKeyImportParams struct {
 	NamedCurve EllipticCurveKind `json:"namedCurve"`
 }
 
-// EllipticCurveKind represents the kind of elliptic curve that is being used.
-type EllipticCurveKind string
+// Ensure EcKeyImportParams implements the From interface.
+var _ From[map[string]interface{}, EcKeyImportParams] = EcKeyImportParams{}
 
-const (
-	// EllipticCurveKindP256 represents the P-256 curve.
-	EllipticCurveKindP256 EllipticCurveKind = "P-256"
+// From implements the From interface for EcKeyImportParams, and initializes the
+// EcKeyImportParams instance from a map[string]interface{}.
+//
+// FIXME: this is a duplicate of EcKeyGenParams.From, and should be refactored.
+//
+//nolint:dupl
+func (e EcKeyImportParams) From(dict map[string]interface{}) (EcKeyImportParams, error) {
+	var params EcKeyImportParams
+	nameFound := false
+	namedCurveFound := false
 
-	// EllipticCurveKindP384 represents the P-384 curve.
-	EllipticCurveKindP384 EllipticCurveKind = "P-384"
+	for key, value := range dict {
+		if strings.EqualFold(key, "name") {
+			name, ok := value.(string)
+			if !ok {
+				return EcKeyImportParams{}, NewError(0, SyntaxError, "name property should hold a string")
+			}
 
-	// EllipticCurveKindP521 represents the P-521 curve.
-	EllipticCurveKindP521 EllipticCurveKind = "P-521"
-)
+			name = strings.ToUpper(name)
+
+			if !IsAlgorithm(name) {
+				return EcKeyImportParams{}, NewError(0, NotSupportedError, "unsupported algorithm name")
+			}
+
+			params.Name = name
+			nameFound = true
+			continue
+		}
+
+		if strings.EqualFold(key, "namedCurve") {
+			namedCurve, ok := value.(string)
+			if !ok {
+				return EcKeyImportParams{}, NewError(0, SyntaxError, "namedCurve property should hold a string")
+			}
+
+			namedCurve = strings.ToUpper(namedCurve)
+
+			if !IsEllipticCurve(namedCurve) {
+				return EcKeyImportParams{}, NewError(0, NotSupportedError, "unsupported elliptic curve name")
+			}
+
+			params.NamedCurve = EllipticCurveKind(namedCurve)
+			namedCurveFound = true
+			continue
+		}
+	}
+
+	if !nameFound {
+		return EcKeyImportParams{}, NewError(0, SyntaxError, "missing algorithm name")
+	}
+
+	if !namedCurveFound {
+		return EcKeyImportParams{}, NewError(0, SyntaxError, "missing elliptic curve name")
+	}
+
+	return params, nil
+}
+
+func importECKey(
+	rt *goja.Runtime,
+	format KeyFormat,
+	key goja.Value,
+	extractable bool,
+	usages []CryptoKeyUsage,
+	normalizedAlgorithm EcKeyImportParams,
+) (goja.Value, error) {
+	var result goja.Value
+	var err error
+	// 2.
+	switch format {
+	case SpkiKeyFormat:
+		result, err = importEcKeyFromSpki(rt, key, usages, normalizedAlgorithm)
+		if err != nil {
+			return nil, err
+		}
+	case Pkcs8KeyFormat:
+		result, err = importEcKeyFromPkcs8(rt, key, usages, normalizedAlgorithm)
+		if err != nil {
+			return nil, err
+		}
+	case JwkKeyFormat:
+		result, err = importEcKeyFromJwk(rt, key, extractable, usages, normalizedAlgorithm)
+		if err != nil {
+			return nil, err
+		}
+	case RawKeyFormat:
+		return nil, NewError(0, NotSupportedError, "raw key format not supported for EC keys")
+	default:
+	}
+
+	// 3.
+	return result, nil
+}
+
+//nolint:dupl
+func importEcKeyFromSpki(
+	rt *goja.Runtime,
+	keyData goja.Value,
+	usages []CryptoKeyUsage,
+	normalizedAlgorithm EcKeyImportParams,
+) (goja.Value, error) {
+	// 1.
+	var data []byte
+	err := rt.ExportTo(keyData, &data)
+	if err != nil {
+		return nil, NewError(0, DataError, "could not export key data")
+	}
+
+	// 2.1.
+	if !ContainsOnly(usages, VerifyCryptoKeyUsage) {
+		return nil, NewError(0, SyntaxError, "invalid key usage")
+	}
+
+	// 2.2.
+	k, err := x509.ParsePKIXPublicKey(data)
+	if err != nil {
+		return nil, NewError(0, DataError, "could not parse key data")
+	}
+
+	ecKey, ok := k.(*ecdsa.PublicKey)
+	if !ok {
+		return nil, NewError(0, DataError, "could not parse key data")
+	}
+
+	// 2.3. 2.4. 2.5. 2.6. 2.7. we assume are handled by the crypto/x509 package.
+
+	// 2.8.
+	var namedCurve EllipticCurveKind
+
+	// 2.9.
+	switch ecKey.Curve.Params().Name {
+	case "P-256":
+		namedCurve = EllipticCurveKindP256
+	case "P-384":
+		namedCurve = EllipticCurveKindP384
+	case "P-521":
+		namedCurve = EllipticCurveKindP521
+	default:
+		// 2.10.
+		return nil, NewError(0, DataError, "unsupported elliptic curve")
+	}
+
+	// 2.10.
+	key := CryptoKey[*ecdsa.PublicKey]{
+		handle: ecKey,
+	}
+
+	// 2.11.
+	if namedCurve != "" && namedCurve != normalizedAlgorithm.NamedCurve {
+		return nil, NewError(0, DataError, "unsupported elliptic curve")
+	}
+
+	// 2.12. we don't need to check that our public key uses the appropriate
+	// elliptic curve.
+
+	// 2.13.
+	key.Type = PublicCryptoKeyType
+
+	// 2.14.
+	algorithm := EcKeyAlgorithm{}
+
+	// 2.15.
+	algorithm.Name = ECDSA
+
+	// 2.16.
+	algorithm.NamedCurve = namedCurve
+
+	// 2.17.
+	key.Algorithm = algorithm
+
+	return rt.ToValue(key), nil
+}
+
+//nolint:dupl
+func importEcKeyFromPkcs8(
+	rt *goja.Runtime,
+	keyData goja.Value,
+	usages []CryptoKeyUsage,
+	normalizedAlgorithm EcKeyImportParams,
+) (goja.Value, error) {
+	// 1.
+	var data []byte
+	err := rt.ExportTo(keyData, &data)
+	if err != nil {
+		return nil, NewError(0, DataError, "could not export key data")
+	}
+
+	// 2.1.
+	if !ContainsOnly(usages, SignCryptoKeyUsage) {
+		return nil, NewError(0, SyntaxError, "invalid key usage")
+	}
+
+	// 2.2.
+	k, err := x509.ParsePKCS8PrivateKey(data)
+	if err != nil {
+		// 2.3.
+		return nil, NewError(0, DataError, "could not parse key data")
+	}
+
+	ecPrivateKey, ok := k.(*ecdsa.PrivateKey)
+	if !ok {
+		// 2.3.
+		return nil, NewError(0, DataError, "could not parse key data")
+	}
+
+	// 2.4. 2.5. 2.6. 2.7. we assume are handled by the crypto/x509 package.
+
+	// 2.8.
+	var namedCurve EllipticCurveKind
+
+	// 2.9.
+	switch ecPrivateKey.Curve.Params().Name {
+	case "P-256":
+		namedCurve = EllipticCurveKindP256
+	case "P-384":
+		namedCurve = EllipticCurveKindP384
+	case "P-521":
+		namedCurve = EllipticCurveKindP521
+	default:
+		// 2.10.
+		return nil, NewError(0, DataError, "unsupported elliptic curve")
+	}
+
+	// 2.10.
+	key := CryptoKey[*ecdsa.PrivateKey]{
+		handle: ecPrivateKey,
+	}
+
+	// 2.11.
+	if namedCurve != "" && namedCurve != normalizedAlgorithm.NamedCurve {
+		return nil, NewError(0, DataError, "unsupported elliptic curve")
+	}
+
+	// 2.12. we don't need to check that our public key uses the appropriate
+	// elliptic curve.
+
+	// 2.13.
+	key.Type = PublicCryptoKeyType
+
+	// 2.14.
+	algorithm := EcKeyAlgorithm{}
+
+	// 2.15.
+	algorithm.Name = ECDSA
+
+	// 2.16.
+	algorithm.NamedCurve = namedCurve
+
+	// 2.17.
+	key.Algorithm = algorithm
+
+	return rt.ToValue(key), nil
+}
+
+//nolint:funlen,gocognit,cyclop
+func importEcKeyFromJwk(
+	rt *goja.Runtime,
+	keyData goja.Value,
+	extractable bool,
+	usages []CryptoKeyUsage,
+	normalizedAlgorithm EcKeyImportParams,
+) (goja.Value, error) {
+	// 2.1.
+	var jwk JSONWebKey
+	err := rt.ExportTo(keyData, &jwk)
+	if err != nil {
+		return nil, NewError(0, DataError, "could not import data as JSON Web Key")
+	}
+
+	// 2.2.
+	if jwk.D != "" && jwk.D != SignCryptoKeyUsage || jwk.D == "" && !Contains(usages, VerifyCryptoKeyUsage) {
+		return nil, NewError(0, DataError, "invalid key usage")
+	}
+
+	// 2.3.
+	if jwk.KeyType != "EC" {
+		return nil, NewError(0, DataError, "invalid key type")
+	}
+
+	// 2.4.
+	if usages != nil && jwk.Use != "" && jwk.Use != "sig" {
+		return nil, NewError(0, DataError, "invalid key usage")
+	}
+
+	// 2.5.
+	if jwk.KeyOps != nil {
+		for _, usage := range usages {
+			if !Contains(jwk.KeyOps, usage) {
+				return nil, NewError(0, DataError, "invalid key usage")
+			}
+		}
+	}
+
+	// 2.6.
+	if !jwk.Extractable && extractable {
+		return nil, NewError(0, DataError, "invalid key extractability")
+	}
+
+	// 2.7.
+	namedCurve := jwk.Crv
+
+	// 2.8.
+	if namedCurve != string(normalizedAlgorithm.NamedCurve) {
+		return nil, NewError(0, DataError, "invalid key curve")
+	}
+
+	// 2.8.1.
+	var algNamedCurve EllipticCurveKind
+
+	// 2.8.2.
+	switch jwk.Algorithm {
+	case string(EllipticCurveKindP256):
+		algNamedCurve = EllipticCurveKindP256
+	case string(EllipticCurveKindP384):
+		algNamedCurve = EllipticCurveKindP384
+	case string(EllipticCurveKindP521):
+		algNamedCurve = EllipticCurveKindP521
+	default:
+		break
+	}
+
+	// 2.8.3.
+	if algNamedCurve != "" && algNamedCurve != normalizedAlgorithm.NamedCurve {
+		return nil, NewError(0, DataError, "algorithm does not match key curve")
+	}
+
+	// 2.11. 2.12. 2.13. We do these before hand to avoid repetition
+	// in the code below.
+	algorithm := EcKeyAlgorithm{}
+	algorithm.Name = ECDSA
+	algorithm.NamedCurve = EllipticCurveKind(namedCurve)
+
+	// 2.8.4.
+	// FIXME: this should check if D is present (as in an optional not set, rather than empty string)
+	if jwk.D != "" {
+		// 2.8.4.1.
+		keyData, err := base64.URLEncoding.DecodeString(jwk.D)
+		if err != nil {
+			return nil, NewError(0, DataError, "could not decode key data")
+		}
+
+		// 2.8.4.2.
+		ecPrivateKey := &ecdsa.PrivateKey{
+			D: new(big.Int).SetBytes(keyData),
+		}
+
+		public := ecPrivateKey.Public()
+		ecPrivateKey.PublicKey = *public.(*ecdsa.PublicKey) //nolint:forcetypeassert
+
+		key := CryptoKey[*ecdsa.PrivateKey]{
+			Algorithm: algorithm,
+			handle:    ecPrivateKey,
+		}
+
+		// 2.8.4.3.
+		key.Type = PrivateCryptoKeyType
+
+		return rt.ToValue(key), nil
+	}
+
+	if jwk.Crv == "" || jwk.X == "" || jwk.Y == "" {
+		return nil, NewError(0, DataError, "could not parse key data")
+	}
+
+	var ec elliptic.Curve
+	switch jwk.Crv {
+	case string(EllipticCurveKindP256):
+		ec = elliptic.P256()
+	case string(EllipticCurveKindP384):
+		ec = elliptic.P384()
+	case string(EllipticCurveKindP521):
+		ec = elliptic.P521()
+	default:
+		return nil, NewError(0, DataError, "could not parse key data")
+	}
+
+	ecPublicKey := &ecdsa.PublicKey{
+		Curve: ec,
+		X:     new(big.Int).SetBytes([]byte(jwk.X)),
+		Y:     new(big.Int).SetBytes([]byte(jwk.Y)),
+	}
+
+	return rt.ToValue(CryptoKey[*ecdsa.PublicKey]{
+		Algorithm: algorithm,
+		Type:      PublicCryptoKeyType,
+		handle:    ecPublicKey,
+	}), nil
+}
 
 // IsEllipticCurve returns true if the given string is a valid EllipticCurveKind,
 // false otherwise.
