@@ -237,31 +237,6 @@ func NormalizeAlgorithm(algorithm interface{}, op OperationIdentifier) (interfac
 	}
 }
 
-// As defined by the [specification]
-// [specification]: https://w3c.github.io/webcrypto/#algorithm-normalization-internal
-//
-//nolint:gochecknoglobals
-var supportedAlgorithms = map[OperationIdentifier]map[AlgorithmIdentifier]string{
-	OperationIdentifierDigest: {
-		Sha1:   "",
-		Sha256: "",
-		Sha384: "",
-		Sha512: "",
-	},
-	OperationIdentifierGenerateKey: {
-		RSASsaPkcs1v15: "RsaHashedKeyGenParams",
-		RSAPss:         "RsaHashedKeyGenParams",
-		RSAOaep:        "RsaHashedKeyGenParams",
-		ECDSA:          "EcKeyGenParams",
-		ECDH:           "EcKeyGenParams",
-		HMAC:           "HmacKeyGenParams",
-		AESCtr:         "AesKeyGenParams",
-		AESCbc:         "AesKeyGenParams",
-		AESGcm:         "AesKeyGenParams",
-		AESKw:          "AesKeyGenParams",
-	},
-}
-
 // IsAlgorithm returns true if the given algorithm is supported by the library.
 func IsAlgorithm(algorithm string) bool {
 	algorithms := [...]AlgorithmIdentifier{
@@ -312,6 +287,41 @@ func IsHashAlgorithm(algorithm string) bool {
 	}
 
 	return false
+}
+
+// SupportsExportOperation returns true if the given algorithm supports the export operation.
+func SupportsExportOperation(algorithm AlgorithmIdentifier) bool {
+	switch algorithm {
+	case HMAC, RSASsaPkcs1v15, RSAPss, RSAOaep, ECDSA, AESCtr, AESCbc, AESGcm, AESKw:
+		return true
+	default:
+		return false
+	}
+}
+
+// As defined by the [specification]
+// [specification]: https://w3c.github.io/webcrypto/#algorithm-normalization-internal
+//
+//nolint:gochecknoglobals
+var supportedAlgorithms = map[OperationIdentifier]map[AlgorithmIdentifier]string{
+	OperationIdentifierDigest: {
+		Sha1:   "",
+		Sha256: "",
+		Sha384: "",
+		Sha512: "",
+	},
+	OperationIdentifierGenerateKey: {
+		RSASsaPkcs1v15: "RsaHashedKeyGenParams",
+		RSAPss:         "RsaHashedKeyGenParams",
+		RSAOaep:        "RsaHashedKeyGenParams",
+		ECDSA:          "EcKeyGenParams",
+		ECDH:           "EcKeyGenParams",
+		HMAC:           "HmacKeyGenParams",
+		AESCtr:         "AesKeyGenParams",
+		AESCbc:         "AesKeyGenParams",
+		AESGcm:         "AesKeyGenParams",
+		AESKw:          "AesKeyGenParams",
+	},
 }
 
 // OperationIdentifier represents the name of an operation.
