@@ -4,6 +4,8 @@ import (
 	"crypto"
 	"crypto/ecdsa"
 	"crypto/rsa"
+
+	"github.com/dop251/goja"
 )
 
 // CryptoKeyPair represents a key pair for an asymmetric cryptography algorithm, also known as
@@ -59,10 +61,64 @@ type CryptoKey[H KeyHandle] struct {
 	handle H
 }
 
-// KeyHandle is an interface that represents a cryptographic key handle (data).
-// It is meant to be used as a generic type parameter for CryptoKey.
+// KeyHandle represents the underlying type of a key data handle.
 type KeyHandle interface {
-	SecretHandle | PrivateHandle | PublicHandle
+	[]byte | crypto.PrivateKey | crypto.PublicKey
+}
+
+// AlgorithmName returns the name of the algorithm used to generate the key.
+func (c CryptoKey[H]) AlgorithmName() AlgorithmIdentifier {
+	switch a := c.Algorithm.(type) {
+	case Algorithm:
+		return a.Name
+	case AesKeyAlgorithm:
+		return a.KeyAlgorithm.Name
+	case EcKeyAlgorithm:
+		return a.KeyAlgorithm.Name
+	case HmacKeyAlgorithm:
+		return a.KeyAlgorithm.Name
+	case RsaHashedKeyAlgorithm:
+		return a.RsaKeyAlgorithm.Name
+	default:
+		return ""
+	}
+}
+
+// Supports returns true if the key supports the given usage.
+func (c CryptoKey[H]) Supports(op OperationIdentifier) bool {
+	algorithmName := c.AlgorithmName()
+
+	switch op {
+	case OperationIdentifierExportKey:
+		if !c.Extractable {
+			return false
+		}
+
+		if algorithmName != HMAC &&
+			algorithmName != RSASsaPkcs1v15 &&
+			algorithmName != RSAPss &&
+			algorithmName != RSAOaep &&
+			algorithmName != ECDSA &&
+			algorithmName != AESCbc &&
+			algorithmName != AESCtr &&
+			algorithmName != AESGcm &&
+			algorithmName != AESKw {
+			return false
+		}
+	default:
+		// FIXME: we should ensure all supported operations are listed here
+		// in further PRs. Once it's done, we can make an initial check whether
+		// the provided op is a supported check at all and fail immediately if
+		// so.
+		return false
+	}
+
+	return true
+}
+
+// KeyGenerator is an interface that represents a cryptographic key generator.
+type KeyGenerator interface {
+	GenerateKey(rt *goja.Runtime, extractable bool, keyUsages []CryptoKeyUsage) (goja.Value, error)
 }
 
 // SecretHandle is an interface that represents a secret key.

@@ -191,3 +191,13 @@ func IsHashAlgorithm(algorithm string) bool {
 
 	return false
 }
+
+// SupportsExportOperation returns true if the given algorithm supports the export operation.
+func SupportsExportOperation(algorithm AlgorithmIdentifier) bool {
+	switch algorithm {
+	case HMAC, RSASsaPkcs1v15, RSAPss, RSAOaep, ECDSA, AESCtr, AESCbc, AESGcm, AESKw:
+		return true
+	default:
+		return false
+	}
+}
