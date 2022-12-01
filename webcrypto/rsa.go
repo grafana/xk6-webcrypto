@@ -4,6 +4,9 @@ import (
 	"crypto"
 	"crypto/rand"
 	"crypto/rsa"
+	"crypto/x509"
+	"encoding/base64"
+	"math/big"
 	"strings"
 
 	"github.com/dop251/goja"
@@ -232,4 +235,161 @@ func (r RsaHashedKeyGenParams) GenerateKeyPair(
 
 	// 22.
 	return &result, nil
+}
+
+// exportRSAKey exports a RSA key to a given format.
+// As defined in the ExportKey section of each RSA algorithm
+// described in the [specification].
+//
+// [specification]: https://www.w3.org/TR/WebCryptoAPI/#rsassa-pkcs1-operations
+func exportRSAKey(rt *goja.Runtime, format KeyFormat, key goja.Value) (goja.Value, error) {
+	switch format {
+	case SpkiKeyFormat:
+		return exportRSAKeyAsSpki(rt, key)
+	case Pkcs8KeyFormat:
+		return exportRSAKeyAsPkcs8(rt, key)
+	case JwkKeyFormat:
+		return exportRSAKeyAsJwk(rt, key)
+	default:
+		return nil, NewError(0, NotSupportedError, "unsupported key format")
+	}
+}
+
+func exportRSAKeyAsSpki(rt *goja.Runtime, key goja.Value) (goja.Value, error) {
+	// 1.
+	var cryptoKey CryptoKey[*rsa.PublicKey]
+	err := rt.ExportTo(key, cryptoKey)
+	if err != nil {
+		return nil, NewError(0, InvalidAccessError, "key is not a public key")
+	}
+
+	// 2.
+	if cryptoKey.handle == nil {
+		return nil, NewError(0, OperationError, "key is not valid, no data")
+	}
+
+	// 3.1.
+	if cryptoKey.Type != PublicCryptoKeyType {
+		return nil, NewError(0, InvalidAccessError, "key is not a public key")
+	}
+
+	// 3.2.
+	// TODO: this is based on the assumption that this stdlib function does
+	// the steps described in the specs. Verify and remove me.
+	data, err := x509.MarshalPKIXPublicKey(cryptoKey.handle)
+	if err != nil {
+		return nil, NewError(0, OperationError, "failed to marshal public key")
+	}
+
+	return rt.ToValue(rt.NewArrayBuffer(data)), nil
+}
+
+func exportRSAKeyAsPkcs8(rt *goja.Runtime, key goja.Value) (goja.Value, error) {
+	// 1.
+	var cryptoKey CryptoKey[*rsa.PrivateKey]
+	err := rt.ExportTo(key, cryptoKey)
+	if err != nil {
+		return nil, NewError(0, InvalidAccessError, "key is not a private key")
+	}
+
+	// 2.
+	if cryptoKey.handle == nil {
+		return nil, NewError(0, OperationError, "key is not valid, no data")
+	}
+
+	// TODO: verify that this actually complies with the specs (it should)
+	data, err := x509.MarshalPKCS8PrivateKey(cryptoKey.handle)
+	if err != nil {
+		return nil, NewError(0, OperationError, "failed to marshal private key")
+	}
+
+	return rt.ToValue(rt.NewArrayBuffer(data)), nil
+}
+
+//nolint:funlen
+func exportRSAKeyAsJwk(rt *goja.Runtime, key goja.Value) (goja.Value, error) {
+	// There's a trick here, as we need to handle both public and private keys
+	// but we have a concrete type for them. Conviniently, Go exposes crypto
+	// keys in a way that public key are contained by private keys, so we can
+	// use this to our advantage.
+	var cryptoKey CryptoKey[*rsa.PrivateKey]
+	err := rt.ExportTo(key, cryptoKey)
+	if err != nil {
+		return nil, NewError(0, InvalidAccessError, "key is not a private key")
+	}
+
+	keyAlgorithm, ok := cryptoKey.Algorithm.(RsaHashedKeyAlgorithm)
+	if !ok {
+		return nil, NewError(0, ImplementationError, "unable to extract key data")
+	}
+
+	// 2.1.
+	jwk := JSONWebKey{}
+
+	// 2.2.
+	jwk.KeyType = "RSA"
+
+	// 2.3.
+	var prefix string
+	switch keyAlgorithm.Name {
+	case RSASsaPkcs1v15:
+		prefix = "RS"
+	case RSAPss:
+		prefix = "PS"
+	case RSAOaep:
+		prefix = "RSA-OAEP-"
+	default:
+		return nil, NewError(0, NotSupportedError, "unsupported algorithm")
+	}
+
+	var suffix string
+	switch keyAlgorithm.Hash.Name {
+	case Sha1:
+		if keyAlgorithm.Name == RSAOaep {
+			suffix = ""
+		} else {
+			suffix = "1"
+		}
+	case Sha256:
+		suffix = "256"
+	case Sha384:
+		suffix = "384"
+	case Sha512:
+		suffix = "512"
+	default:
+		return nil, NewError(0, NotSupportedError, "unsupported hash algorithm")
+	}
+
+	jwk.Algorithm = prefix + suffix
+
+	// 3.4.
+	// As defined in the JWA RFC: https://www.rfc-editor.org/rfc/rfc7518#section-6.3.1
+	jwk.N = base64.RawURLEncoding.EncodeToString(cryptoKey.handle.N.Bytes())
+	jwk.E = base64.RawURLEncoding.EncodeToString(big.NewInt(int64(cryptoKey.handle.E)).Bytes())
+
+	// 3.5.
+	// As defined in the JWA RFC: https://www.rfc-editor.org/rfc/rfc7518#section-6.3.2
+	if cryptoKey.Type == PrivateCryptoKeyType {
+		jwk.D = base64.RawURLEncoding.EncodeToString(cryptoKey.handle.D.Bytes())
+		jwk.P = base64.RawURLEncoding.EncodeToString(cryptoKey.handle.Primes[0].Bytes())
+		jwk.Q = base64.RawURLEncoding.EncodeToString(cryptoKey.handle.Primes[1].Bytes())
+		jwk.Dp = base64.RawURLEncoding.EncodeToString(cryptoKey.handle.Precomputed.Dp.Bytes())
+		jwk.Dq = base64.RawURLEncoding.EncodeToString(cryptoKey.handle.Precomputed.Dq.Bytes())
+		jwk.Qi = base64.RawURLEncoding.EncodeToString(cryptoKey.handle.Precomputed.Qinv.Bytes())
+
+		// 3.5.2.
+		// TODO: "If the underlying RSA private key represented by
+		// the [[handle]] internal slot of key is represented by more
+		// than two primes, set the attribute named oth of jwk according
+		// to the corresponding definition in JSON Web Algorithms, Section 6.3.2.7"
+	}
+
+	// 4.
+	copy(jwk.KeyOps, cryptoKey.Usages)
+
+	// 5.
+	jwk.Extractable = cryptoKey.Extractable
+
+	// 6.
+	return rt.ToValue(jwk), nil
 }
