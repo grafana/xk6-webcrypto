@@ -5,6 +5,7 @@ import (
 	"crypto/ecdsa"
 	"crypto/elliptic"
 	"crypto/rand"
+	"crypto/x509"
 	"strings"
 
 	"github.com/dop251/goja"
@@ -247,4 +248,195 @@ func IsEllipticCurve(name string) bool {
 	default:
 		return false
 	}
+}
+
+// exportECKey exports the given Elliptic Curve key to the given format.
+// As defined in the [specification]() for exporting ECDSA keys.
+//
+// [specification]: https://www.w3.org/TR/WebCryptoAPI/#ecdsa-operations
+func exportECKey(rt *goja.Runtime, format KeyFormat, key goja.Value) (goja.Value, error) {
+	// 3.
+	switch format {
+	case SpkiKeyFormat:
+		return exportECKeyAsSpki(rt, key)
+	case Pkcs8KeyFormat:
+		return exportECKeyAsPkcs8(rt, key)
+	case JwkKeyFormat:
+		return exportECKeyAsJwk(rt, key)
+	case RawKeyFormat:
+		return exportECKeyAsRaw(rt, key)
+	default:
+		return nil, NewError(0, NotSupportedError, "unsupported key format")
+	}
+}
+
+// exportECKeyAsSpki exports the given key as a SubjectPublicKeyInfo structure.
+// As defined in the [specification] for exporting ECDSA keys.
+//
+// [specification]: https://www.w3.org/TR/WebCryptoAPI/#ecdsa-operations
+func exportECKeyAsSpki(rt *goja.Runtime, key goja.Value) (goja.Value, error) {
+	var cryptoKey CryptoKey[*ecdsa.PublicKey]
+	err := rt.ExportTo(key, cryptoKey)
+	if err != nil {
+		return nil, NewError(0, InvalidAccessError, "key is not a public key")
+	}
+
+	// 2.
+	if cryptoKey.handle == nil {
+		return nil, NewError(0, OperationError, "key is not valid, no data")
+	}
+
+	// 3.1.
+	if cryptoKey.Type != PublicCryptoKeyType {
+		return nil, NewError(0, InvalidAccessError, "key is not a public key")
+	}
+
+	// 3.2.
+	// FIXME: this is based on the assumption that this stdlib function does
+	// the steps described in the specs. Verify and remove me.
+	data, err := x509.MarshalPKIXPublicKey(cryptoKey.handle)
+	if err != nil {
+		return nil, NewError(0, OperationError, "failed to marshal public key")
+	}
+
+	// 3.3.
+	return rt.ToValue(rt.NewArrayBuffer(data)), nil
+}
+
+// exportECKeyAsPkcs8 exports the given key as a PKCS#8 structure.
+// As defined in the [specification] for exporting ECDSA keys.
+//
+// [specification]: https://www.w3.org/TR/WebCryptoAPI/#ecdsa-operations
+func exportECKeyAsPkcs8(rt *goja.Runtime, key goja.Value) (goja.Value, error) {
+	var cryptoKey CryptoKey[*ecdsa.PrivateKey]
+	err := rt.ExportTo(key, cryptoKey)
+	if err != nil {
+		return nil, NewError(0, InvalidAccessError, "key is not a private key")
+	}
+
+	// 2.
+	if cryptoKey.handle == nil {
+		return nil, NewError(0, OperationError, "key is not valid, no data")
+	}
+
+	// 3.1.
+	if cryptoKey.Type != PrivateCryptoKeyType {
+		return nil, NewError(0, InvalidAccessError, "key is not a private key")
+	}
+
+	// TODO: verify that this actually complies with the specs (it should)
+	data, err := x509.MarshalPKCS8PrivateKey(cryptoKey.handle)
+	if err != nil {
+		return nil, NewError(0, OperationError, "failed to marshal private key")
+	}
+
+	return rt.ToValue(rt.NewArrayBuffer(data)), nil
+}
+
+// exportECKeyAsJwk exports the given key as a JWK structure.
+// As defined in the [specification] for exporting ECDSA keys.
+//
+// [specification]: https://www.w3.org/TR/WebCryptoAPI/#ecdsa-operations
+func exportECKeyAsJwk(rt *goja.Runtime, key goja.Value) (goja.Value, error) {
+	// There's a trick here, as we need to handle both public and private keys
+	// but we have a concrete type for them. Conviniently, Go exposes crypto
+	// keys in a way that public key are contained by private keys, so we can
+	// use this to our advantage.
+	var cryptoKey CryptoKey[*ecdsa.PrivateKey]
+	err := rt.ExportTo(key, cryptoKey)
+	if err != nil {
+		return nil, NewError(0, InvalidAccessError, "key is not a private key")
+	}
+
+	keyAlgorithm, ok := cryptoKey.Algorithm.(EcKeyAlgorithm)
+	if !ok {
+		return nil, NewError(0, ImplementationError, "unable to extract key data")
+	}
+
+	namedCurve := keyAlgorithm.NamedCurve
+
+	// 2.1.
+	jwk := JSONWebKey{}
+
+	// 2.2.
+	jwk.KeyType = "EC"
+
+	// 3.
+	if namedCurve == EllipticCurveKindP256 ||
+		namedCurve == EllipticCurveKindP384 ||
+		namedCurve == EllipticCurveKindP521 {
+		// 3.1
+		switch namedCurve {
+		case EllipticCurveKindP256:
+			jwk.Crv = "P-256"
+		case EllipticCurveKindP384:
+			jwk.Crv = "P-384"
+		case EllipticCurveKindP521:
+			jwk.Crv = "P-521"
+		}
+
+		// 3.2. 3.3.
+		jwk.X = string(cryptoKey.handle.X.Bytes())
+		jwk.Y = string(cryptoKey.handle.Y.Bytes())
+
+		// 3.4.
+		if cryptoKey.Type == PrivateCryptoKeyType {
+			jwk.D = string(cryptoKey.handle.D.Bytes())
+		}
+	} else {
+		// Otherwise 3.1
+		// Note that in this implementation we do not support
+		// "other applicable specifications", and thus error.
+		return nil, NewError(0, NotSupportedError, "unsupported named curve")
+	}
+
+	// 4.
+	jwk.KeyOps = make([]string, len(cryptoKey.Usages))
+	copy(jwk.KeyOps, cryptoKey.Usages)
+
+	// 5.
+	jwk.Extractable = cryptoKey.Extractable
+
+	return rt.ToValue(jwk), nil
+}
+
+// exportECKeyAsRaw exports the given key in raw format.
+// As defined in the [specification] for exporting ECDSA keys.
+//
+// [specification]: https://www.w3.org/TR/WebCryptoAPI/#ecdsa-operations
+func exportECKeyAsRaw(rt *goja.Runtime, key goja.Value) (goja.Value, error) {
+	// There's a trick here, as we need to handle both public and private keys
+	// but we have a concrete type for them. Conviniently, Go exposes crypto
+	// keys in a way that public key are contained by private keys, so we can
+	// use this to our advantage.
+	var cryptoKey CryptoKey[*ecdsa.PublicKey]
+	err := rt.ExportTo(key, cryptoKey)
+	if err != nil {
+		return nil, NewError(0, InvalidAccessError, "key is not a private key")
+	}
+
+	keyAlgorithm, ok := cryptoKey.Algorithm.(EcKeyAlgorithm)
+	if !ok {
+		return nil, NewError(0, ImplementationError, "unable to extract key data")
+	}
+
+	// 2.
+	var (
+		isP256 = keyAlgorithm.NamedCurve == EllipticCurveKindP256
+		isP384 = keyAlgorithm.NamedCurve == EllipticCurveKindP384
+		isP521 = keyAlgorithm.NamedCurve == EllipticCurveKindP521
+	)
+
+	var data []byte
+	if isP256 || isP384 || isP521 {
+		data = elliptic.Marshal(cryptoKey.handle.Curve, cryptoKey.handle.X, cryptoKey.handle.Y)
+	} else {
+		// Otherwise 3.1
+		// Note that in this implementation we do not support
+		// "other applicable specifications", and thus error.
+		return nil, NewError(0, NotSupportedError, "unsupported named curve")
+	}
+
+	// 3.
+	return rt.ToValue(rt.NewArrayBuffer(data)), nil
 }

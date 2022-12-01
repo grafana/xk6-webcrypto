@@ -3,6 +3,7 @@ package webcrypto
 import (
 	"crypto/hmac"
 	"crypto/rand"
+	"encoding/base64"
 	"strings"
 
 	"github.com/dop251/goja"
