@@ -24,3 +24,15 @@ func Contains[T comparable](lhs []T, rhs T) bool {
 
 	return false
 }
+
+// ContainsOnly returns true if the slice only contains values
+// equal to the given value.
+func ContainsOnly[T comparable](slice []T, values ...T) bool {
+	for _, item := range slice {
+		if !Contains(values, item) {
+			return false
+		}
+	}
+
+	return true
+}
