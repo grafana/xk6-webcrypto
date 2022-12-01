@@ -2,6 +2,8 @@ package webcrypto
 
 import (
 	"crypto/rand"
+	"encoding/base64"
+	"fmt"
 	"strings"
 
 	"github.com/dop251/goja"
@@ -156,4 +158,80 @@ func (a AesKeyGenParams) GenerateKey(
 
 	// 12.
 	return &key, nil
+}
+
+// exportAESKey exports the given AES key to the given format.
+// As defined in the [specification] for exporting AES keys.
+//
+// [specification]: https://www.w3.org/TR/WebCryptoAPI/#aes-ctr-operations
+func exportAESKey(rt *goja.Runtime, format KeyFormat, key CryptoKey[[]byte]) (goja.Value, error) {
+	if !key.Extractable {
+		return nil, NewError(0, InvalidAccessError, "key is not extractable")
+	}
+
+	// 1.
+	if key.handle == nil {
+		return nil, NewError(0, OperationError, "key is not valid, no data")
+	}
+
+	// 2.
+	switch format {
+	case RawKeyFormat:
+		return rt.ToValue(rt.NewArrayBuffer(key.handle)), nil
+	case JwkKeyFormat:
+		return exportAESKeyAsJwk(rt, key)
+	default:
+		return nil, NewError(0, NotSupportedError, "invalid key format")
+	}
+}
+
+// exportAESKeyAsJwk exports the given AES key as a JWK key object.
+// As defined in the [specification] for exporting AES keys.
+//
+// [specification]: https://www.w3.org/TR/WebCryptoAPI/#aes-ctr-operations
+func exportAESKeyAsJwk(rt *goja.Runtime, key CryptoKey[[]byte]) (goja.Value, error) {
+	// 2.1.
+	jwk := JSONWebKey{}
+
+	// 2.2.
+	jwk.KeyType = "oct"
+
+	// 2.3.
+	jwk.K = base64.URLEncoding.EncodeToString(key.handle)
+
+	// 2.4.
+	aesAlgorithm, ok := key.Algorithm.(AesKeyAlgorithm)
+	if !ok {
+		return nil, NewError(0, ImplementationError, "unable to extract key algorithm")
+	}
+	var algorithmSuffix string
+	switch aesAlgorithm.Name {
+	case AESCbc:
+		algorithmSuffix = "CBC"
+	case AESCtr:
+		algorithmSuffix = "CTR"
+	case AESGcm:
+		algorithmSuffix = "GCM"
+	case AESKw:
+		algorithmSuffix = "KW"
+	}
+
+	switch aesAlgorithm.Length {
+	case 128:
+		jwk.Algorithm = fmt.Sprintf("A128%s", algorithmSuffix)
+	case 192:
+		jwk.Algorithm = fmt.Sprintf("A192%s", algorithmSuffix)
+	case 256:
+		jwk.Algorithm = fmt.Sprintf("A256%s", algorithmSuffix)
+	}
+
+	// 2.5.
+	jwk.KeyOps = make([]string, len(key.Usages))
+	copy(jwk.KeyOps, key.Usages)
+
+	// 2.6.
+	jwk.Extractable = key.Extractable
+
+	// 2.7.
+	return rt.ToValue(jwk), nil
 }
