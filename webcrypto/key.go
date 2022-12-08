@@ -56,8 +56,57 @@ type CryptoKey[H KeyHandle] struct {
 
 	// handle is an internal slot, holding the underlying key data.
 	// See [specification](https://www.w3.org/TR/WebCryptoAPI/#dfnReturnLink-0).
-	//nolint:unused
 	handle H
+}
+
+// AlgorithmName returns the name of the algorithm used to generate the key.
+func (c CryptoKey[H]) AlgorithmName() AlgorithmIdentifier {
+	switch a := c.Algorithm.(type) {
+	case Algorithm:
+		return a.Name
+	case AesKeyAlgorithm:
+		return a.KeyAlgorithm.Name
+	case EcKeyAlgorithm:
+		return a.KeyAlgorithm.Name
+	case HmacKeyAlgorithm:
+		return a.KeyAlgorithm.Name
+	case RsaHashedKeyAlgorithm:
+		return a.RsaKeyAlgorithm.Name
+	default:
+		return ""
+	}
+}
+
+// Supports returns true if the key supports the given usage.
+func (c CryptoKey[H]) Supports(op OperationIdentifier) bool {
+	algorithmName := c.AlgorithmName()
+
+	switch op {
+	case OperationIdentifierExportKey:
+		if !c.Extractable {
+			return false
+		}
+
+		if algorithmName != HMAC &&
+			algorithmName != RSASsaPkcs1v15 &&
+			algorithmName != RSAPss &&
+			algorithmName != RSAOaep &&
+			algorithmName != ECDSA &&
+			algorithmName != AESCbc &&
+			algorithmName != AESCtr &&
+			algorithmName != AESGcm &&
+			algorithmName != AESKw {
+			return false
+		}
+	default:
+		// FIXME: we should ensure all supported operations are listed here
+		// in further PRs. Once it's done, we can make an initial check whether
+		// the provided op is a supported check at all and fail immediately if
+		// so.
+		return false
+	}
+
+	return true
 }
 
 // KeyGenerator is an interface that represents a cryptographic key generator.
@@ -74,6 +123,11 @@ type KeyHandle interface {
 type KeyAlgorithm struct {
 	// Name of the algorithm.
 	Name AlgorithmIdentifier `json:"name"`
+}
+
+// CryptoKeyAlgorithm represents a cryptographic key algorithm.
+type CryptoKeyAlgorithm interface {
+	AesKeyGenParams | RSAHashedKeyGenParams | HMACKeyGenParams
 }
 
 // CryptoKeyType represents the type of a key.

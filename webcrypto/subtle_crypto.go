@@ -160,8 +160,47 @@ func (sc *SubtleCrypto) Digest(algorithm goja.Value, data interface{}) *goja.Pro
 //
 // The `keyUsages` parameter is an array of strings indicating what the key can be used for.
 func (sc *SubtleCrypto) GenerateKey(algorithm goja.Value, extractable bool, keyUsages []CryptoKeyUsage) *goja.Promise {
-	// TODO: implementation
-	return nil
+	promise, resolve, reject := sc.makeHandledPromise()
+
+	// 2.
+	// As the algorithm could either be a string or object, we export it to
+	// a interface{}, and let NormalizeAlgorithm() handle the rest.
+	normalizedAlgorithm, err := NormalizeAlgorithm(algorithm.Export(), OperationIdentifierGenerateKey)
+	if err != nil {
+		reject(err)
+		return promise
+	}
+
+	// 5.
+	go func() {
+		var value goja.Value
+		var err error
+
+		// FIXME: params could be an interface here, depending on whatever underlying
+		// implementation to have a Generate method.
+		switch params := normalizedAlgorithm.(type) {
+		case HmacKeyGenParams:
+			value, err = params.GenerateKey(sc.vu.Runtime(), extractable, keyUsages)
+		case EcKeyGenParams:
+			value, err = params.GenerateKey(sc.vu.Runtime(), extractable, keyUsages)
+		case AesKeyGenParams:
+			value, err = params.GenerateKey(sc.vu.Runtime(), extractable, keyUsages)
+		case RsaHashedKeyGenParams:
+			value, err = params.GenerateKey(sc.vu.Runtime(), extractable, keyUsages)
+		default:
+			reject(NewError(0, NotSupportedError, "unsupported algorithm"))
+			return
+		}
+
+		if err != nil {
+			reject(err)
+			return
+		}
+
+		resolve(value)
+	}()
+
+	return promise
 }
 
 // DeriveKey can be used to derive a secret key from a master key.
@@ -280,9 +319,63 @@ func (sc *SubtleCrypto) ImportKey(
 //
 // The `format` parameter identifies the format of the key data.
 // The `key` parameter is the key to export, as a CryptoKey object.
-func (sc *SubtleCrypto) ExportKey(format KeyFormat, key CryptoKey[[]byte]) *goja.Promise {
-	// TODO
-	return nil
+func (sc *SubtleCrypto) ExportKey(format KeyFormat, key goja.Value) *goja.Promise {
+	// 1. 2.
+	promise, resolve, reject := sc.makeHandledPromise()
+
+	// 3.
+	go func() {
+		// FIXME: we should pass crypto key down as a goja.Value instead.
+		cryptoKey, ok := key.Export().(CryptoKey[[]byte])
+		if !ok {
+			reject(NewError(0, ImplementationError, "unable to extract CryptoKey"))
+			return
+		}
+
+		// 5.
+		if !cryptoKey.Supports(OperationIdentifierExportKey) {
+			reject(NewError(0, "NotSupportedError", "The algorithm is not supported"))
+			return
+		}
+
+		// 6.
+		if !cryptoKey.Extractable {
+			reject(NewError(0, "InvalidAccessError", "The key is not extractable"))
+			return
+		}
+
+		var value goja.Value
+		var err error
+
+		switch cryptoKey.AlgorithmName() {
+		case HMAC:
+			value, err = exportHMACKey(sc.vu.Runtime(), format, cryptoKey)
+		case RSASsaPkcs1v15:
+		case RSAPss:
+		case RSAOaep:
+			value, err = exportRSAKey(sc.vu.Runtime(), format, key)
+		// // TODO: case ECDH:
+		case ECDSA:
+			// As we do not know if the key we're looking to export is a public
+			// or private one, nor what the requirements are, beforehand, we
+			// pass it as a goja.Value to the exporter instead.
+			value, err = exportECKey(sc.vu.Runtime(), format, key)
+		case AESCbc, AESCtr, AESGcm, AESKw:
+			value, err = exportAESKey(sc.vu.Runtime(), format, cryptoKey)
+		default:
+			reject(NewError(0, NotSupportedError, "unsupported algorithm"))
+			return
+		}
+
+		if err != nil {
+			reject(err)
+			return
+		}
+
+		resolve(value)
+	}()
+
+	return promise
 }
 
 // WrapKey  "wraps" a key.
