@@ -222,9 +222,19 @@ func NormalizeAlgorithm(algorithm interface{}, op OperationIdentifier) (interfac
 	}
 
 	// 6.
-	// FIXME: handle this case in later versions
-	err := NewError(0, ImplementationError, fmt.Sprintf("unsupported algorithm type: %s", desiredType))
-	return Algorithm{}, err
+	// FIXME: the case strings should be constants
+	switch desiredType {
+	case "AesKeyGenParams":
+		return AesKeyGenParams{}.From(initialAlg)
+	case "EcKeyGenParams":
+		return EcKeyGenParams{}.From(initialAlg)
+	case "HmacKeyGenParams":
+		return HmacKeyGenParams{}.From(initialAlg)
+	case "RsaHashedKeyGenParams":
+		return RsaHashedKeyGenParams{}.From(initialAlg)
+	default:
+		return Algorithm{}, NewError(0, ImplementationError, fmt.Sprintf("unsupported algorithm type: %s", desiredType))
+	}
 }
 
 // As defined by the [specification]
@@ -302,6 +312,35 @@ func IsHashAlgorithm(algorithm string) bool {
 	}
 
 	return false
+}
+
+// As defined by the [specification]
+// [specification]: https://w3c.github.io/webcrypto/#algorithm-normalization-internal
+var supportedAlgorithms = map[OperationIdentifier]map[AlgorithmIdentifier]string{
+	OperationIdentifierDigest: {
+		AlgorithmIdentifier(Sha1):   "",
+		AlgorithmIdentifier(Sha256): "",
+		AlgorithmIdentifier(Sha384): "",
+		AlgorithmIdentifier(Sha512): "",
+	},
+	OperationIdentifierGenerateKey: {
+		RSASsaPkcs1v15: "RsaHashedKeyGenParams",
+		RSAPss:         "RsaHashedKeyGenParams",
+		RSAOaep:        "RsaHashedKeyGenParams",
+		ECDSA:          "EcKeyGenParams",
+		ECDH:           "EcKeyGenParams",
+		HMAC:           "HmacKeyGenParams",
+		AESCtr:         "AesKeyGenParams",
+		AESCbc:         "AesKeyGenParams",
+		AESGcm:         "AesKeyGenParams",
+		AESKw:          "AesKeyGenParams",
+	},
+	OperationIdentifierDecrypt: {
+		RSAOaep: "RsaOaepParams",
+		AESCbc:  "AesCbcParams",
+		AESGcm:  "AesGcmParams",
+		AESCtr:  "AesCtrParams",
+	},
 }
 
 // OperationIdentifier represents the name of an operation.
