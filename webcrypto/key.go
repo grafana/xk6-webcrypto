@@ -56,7 +56,6 @@ type CryptoKey[H KeyHandle] struct {
 
 	// handle is an internal slot, holding the underlying key data.
 	// See [specification](https://www.w3.org/TR/WebCryptoAPI/#dfnReturnLink-0).
-	//nolint:unused
 	handle H
 }
 
@@ -70,10 +69,16 @@ type KeyHandle interface {
 	[]byte | crypto.PrivateKey | crypto.PublicKey
 }
 
-// KeyAlgorithm specifies the algorithm for a key.
+// KeyAlgorithm represents information about
+// the contents of a given CryptoKey object.
 type KeyAlgorithm struct {
 	// Name of the algorithm.
 	Name AlgorithmIdentifier `json:"name"`
+}
+
+// CryptoKeyAlgorithm represents a cryptographic key algorithm.
+type CryptoKeyAlgorithm interface {
+	AesKeyGenParams | RSAHashedKeyGenParams | HMACKeyGenParams
 }
 
 // CryptoKeyType represents the type of a key.
@@ -127,6 +132,23 @@ const (
 	// UnwrapKeyCryptoKeyUsage indicates that the key may be used to unwrap another key.
 	UnwrapKeyCryptoKeyUsage CryptoKeyUsage = "unwrapKey"
 )
+
+// recognizedKeyUsages holds the list of recognized key usages.
+// as described by the [specification]
+//
+// [specification]: https://www.w3.org/TR/WebCryptoAPI/#dfn-RecognizedKeyUsage
+//
+//nolint:gochecknoglobals
+var recognizedKeyUsages = []CryptoKeyUsage{
+	EncryptCryptoKeyUsage,
+	DecryptCryptoKeyUsage,
+	SignCryptoKeyUsage,
+	VerifyCryptoKeyUsage,
+	DeriveKeyCryptoKeyUsage,
+	DeriveBitsCryptoKeyUsage,
+	WrapKeyCryptoKeyUsage,
+	UnwrapKeyCryptoKeyUsage,
+}
 
 // UsageIntersection returns the intersection of two slices of CryptoKeyUsage.
 //

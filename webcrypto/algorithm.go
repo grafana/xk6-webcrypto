@@ -222,34 +222,25 @@ func NormalizeAlgorithm(algorithm interface{}, op OperationIdentifier) (interfac
 	}
 
 	// 6.
-	// FIXME: handle this case in later versions
-	err := NewError(0, ImplementationError, fmt.Sprintf("unsupported algorithm type: %s", desiredType))
-	return Algorithm{}, err
-}
-
-// As defined by the [specification]
-// [specification]: https://w3c.github.io/webcrypto/#algorithm-normalization-internal
-//
-//nolint:gochecknoglobals
-var supportedAlgorithms = map[OperationIdentifier]map[AlgorithmIdentifier]string{
-	OperationIdentifierDigest: {
-		Sha1:   "",
-		Sha256: "",
-		Sha384: "",
-		Sha512: "",
-	},
-	OperationIdentifierGenerateKey: {
-		RSASsaPkcs1v15: "RsaHashedKeyGenParams",
-		RSAPss:         "RsaHashedKeyGenParams",
-		RSAOaep:        "RsaHashedKeyGenParams",
-		ECDSA:          "EcKeyGenParams",
-		ECDH:           "EcKeyGenParams",
-		HMAC:           "HmacKeyGenParams",
-		AESCtr:         "AesKeyGenParams",
-		AESCbc:         "AesKeyGenParams",
-		AESGcm:         "AesKeyGenParams",
-		AESKw:          "AesKeyGenParams",
-	},
+	// FIXME: the case strings should be constants
+	switch desiredType {
+	case "AesKeyGenParams":
+		return AesKeyGenParams{}.From(initialAlg)
+	case "EcKeyGenParams":
+		return EcKeyGenParams{}.From(initialAlg)
+	case "HmacKeyGenParams":
+		return HmacKeyGenParams{}.From(initialAlg)
+	case "RsaHashedKeyGenParams":
+		return RsaHashedKeyGenParams{}.From(initialAlg)
+	case "HmacImportParams":
+		return HmacImportParams{}.From(initialAlg)
+	case "EcKeyImportParams":
+		return EcKeyImportParams{}.From(initialAlg)
+	case "RsaHashedImportParams":
+		return RsaHashedImportParams{}.From(initialAlg)
+	default:
+		return Algorithm{}, NewError(0, ImplementationError, fmt.Sprintf("unsupported algorithm type: %s", desiredType))
+	}
 }
 
 // IsAlgorithm returns true if the given algorithm is supported by the library.
@@ -302,6 +293,53 @@ func IsHashAlgorithm(algorithm string) bool {
 	}
 
 	return false
+}
+
+// SupportsExportOperation returns true if the given algorithm supports the export operation.
+func SupportsExportOperation(algorithm AlgorithmIdentifier) bool {
+	switch algorithm {
+	case HMAC, RSASsaPkcs1v15, RSAPss, RSAOaep, ECDSA, AESCtr, AESCbc, AESGcm, AESKw:
+		return true
+	default:
+		return false
+	}
+}
+
+// As defined by the [specification]
+// [specification]: https://w3c.github.io/webcrypto/#algorithm-normalization-internal
+//
+//nolint:gochecknoglobals
+var supportedAlgorithms = map[OperationIdentifier]map[AlgorithmIdentifier]string{
+	OperationIdentifierDigest: {
+		Sha1:   "",
+		Sha256: "",
+		Sha384: "",
+		Sha512: "",
+	},
+	OperationIdentifierGenerateKey: {
+		RSASsaPkcs1v15: "RsaHashedKeyGenParams",
+		RSAPss:         "RsaHashedKeyGenParams",
+		RSAOaep:        "RsaHashedKeyGenParams",
+		ECDSA:          "EcKeyGenParams",
+		ECDH:           "EcKeyGenParams",
+		HMAC:           "HmacKeyGenParams",
+		AESCtr:         "AesKeyGenParams",
+		AESCbc:         "AesKeyGenParams",
+		AESGcm:         "AesKeyGenParams",
+		AESKw:          "AesKeyGenParams",
+	},
+	OperationIdentifierImportKey: {
+		RSASsaPkcs1v15: "RsaHashedImportParams",
+		RSAPss:         "RsaHashedImportParams",
+		RSAOaep:        "RsaHashedImportParams",
+		HMAC:           "HmacImportParams",
+		ECDSA:          "EcKeyImportParams",
+		ECDH:           "EcKeyImportParams",
+		AESCbc:         "",
+		AESCtr:         "",
+		AESGcm:         "",
+		AESKw:          "",
+	},
 }
 
 // OperationIdentifier represents the name of an operation.

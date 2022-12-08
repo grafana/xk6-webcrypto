@@ -160,8 +160,47 @@ func (sc *SubtleCrypto) Digest(algorithm goja.Value, data interface{}) *goja.Pro
 //
 // The `keyUsages` parameter is an array of strings indicating what the key can be used for.
 func (sc *SubtleCrypto) GenerateKey(algorithm goja.Value, extractable bool, keyUsages []CryptoKeyUsage) *goja.Promise {
-	// TODO: implementation
-	return nil
+	promise, resolve, reject := sc.makeHandledPromise()
+
+	// 2.
+	// As the algorithm could either be a string or object, we export it to
+	// a interface{}, and let NormalizeAlgorithm() handle the rest.
+	normalizedAlgorithm, err := NormalizeAlgorithm(algorithm.Export(), OperationIdentifierGenerateKey)
+	if err != nil {
+		reject(err)
+		return promise
+	}
+
+	// 5.
+	go func() {
+		var value goja.Value
+		var err error
+
+		// FIXME: params could be an interface here, depending on whatever underlying
+		// implementation to have a Generate method.
+		switch params := normalizedAlgorithm.(type) {
+		case HmacKeyGenParams:
+			value, err = params.GenerateKey(sc.vu.Runtime(), extractable, keyUsages)
+		case EcKeyGenParams:
+			value, err = params.GenerateKey(sc.vu.Runtime(), extractable, keyUsages)
+		case AesKeyGenParams:
+			value, err = params.GenerateKey(sc.vu.Runtime(), extractable, keyUsages)
+		case RsaHashedKeyGenParams:
+			value, err = params.GenerateKey(sc.vu.Runtime(), extractable, keyUsages)
+		default:
+			reject(NewError(0, NotSupportedError, "unsupported algorithm"))
+			return
+		}
+
+		if err != nil {
+			reject(err)
+			return
+		}
+
+		resolve(value)
+	}()
+
+	return promise
 }
 
 // DeriveKey can be used to derive a secret key from a master key.
@@ -255,15 +294,123 @@ func (sc *SubtleCrypto) DeriveBits(algorithm goja.Value, baseKey CryptoKey[[]byt
 //     `ALGORITHM` is the name of the algorithm.
 //   - for PBKDF2: pass the string "PBKDF2"
 //   - for HKDF: pass the string "HKDF"
+//
+//nolint:funlen,gocognit
 func (sc *SubtleCrypto) ImportKey(
 	format KeyFormat,
-	keyData []byte,
+	keyData goja.Value,
 	algorithm goja.Value,
 	extractable bool,
 	keyUsages []CryptoKeyUsage,
 ) *goja.Promise {
-	// TODO: implementation
-	return nil
+	// 1.
+	promise, resolve, reject := sc.makeHandledPromise()
+
+	// 2.
+	var jwk JSONWebKey
+	var isJwk bool
+	if err := sc.vu.Runtime().ExportTo(keyData, &jwk); err == nil {
+		isJwk = true
+	}
+
+	switch format {
+	case RawKeyFormat:
+	case Pkcs8KeyFormat:
+	case SpkiKeyFormat:
+		// 2.1.
+		if isJwk {
+			reject(NewError(0, TypeError, "keyData is a JsonWebKey, but format is not 'jwk'"))
+			return nil
+		}
+
+		// 2.2.
+		// We obtain a copy of the key data, because we might need to modify it.
+		asObject := keyData.ToObject(sc.vu.Runtime())
+		arrayBuffer, ok := asObject.Export().(goja.ArrayBuffer)
+		if !ok {
+			reject(NewError(0, OperationError, "keyData is neither an ArrayBuffer, nor a TypedArray nor DataView"))
+			return promise
+		}
+		bytes := arrayBuffer.Bytes()
+		keyData = sc.vu.Runtime().ToValue(bytes)
+	case JwkKeyFormat:
+		// 2.1.
+		if !isJwk {
+			reject(NewError(0, TypeError, "keyData is not a JsonWebKey, but format is 'jwk'"))
+			return nil
+		}
+	default:
+		reject(NewError(0, OperationError, "invalid format"))
+		return nil
+	}
+
+	// 3.
+	normalizedAlgorithm, err := NormalizeAlgorithm(algorithm, OperationIdentifierImportKey)
+	if err != nil {
+		// 4.
+		reject(err)
+		return nil
+	}
+
+	// 5.
+	go func() {
+		var result goja.Value
+
+		// 8.
+		switch na := normalizedAlgorithm.(type) {
+		case EcKeyImportParams:
+			key, err := importECKey(sc.vu.Runtime(), format, keyData, extractable, keyUsages, na)
+			if err != nil {
+				reject(err)
+				return
+			}
+
+			result = key
+		case HmacImportParams:
+			// 8.
+			key, err := importHMACKey(sc.vu.Runtime(), na, keyData, format, extractable, keyUsages)
+			if err != nil {
+				reject(err)
+				return
+			}
+
+			result = sc.vu.Runtime().ToValue(key)
+		case Algorithm:
+			if na.Name == AESCbc || na.Name == AESGcm || na.Name == AESCtr {
+				// 8.
+				key, err := importAESKey(
+					sc.vu.Runtime(),
+					na.Name,
+					keyData,
+					format,
+					extractable,
+					keyUsages,
+				)
+				if err != nil {
+					reject(err)
+					return
+				}
+
+				// 9.
+				if (key.Type == SecretCryptoKeyType || key.Type == PrivateCryptoKeyType) && len(key.Usages) == 0 {
+					reject(NewError(0, SyntaxError, "keyUsages must contain at least one value"))
+				}
+
+				// 10.
+				key.Extractable = extractable
+
+				// 11.
+				key.Usages = UsageIntersection(key.Usages, recognizedKeyUsages)
+
+				result = sc.vu.Runtime().ToValue(key)
+			}
+		}
+
+		resolve(result)
+	}()
+
+	// 6.
+	return promise
 }
 
 // ExportKey exports a key: that is, it takes as input a CryptoKey object and gives
