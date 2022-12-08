@@ -10,19 +10,6 @@ type From[Input, Output any] interface {
 	From(Input) (Output, error)
 }
 
-// AESCbcParams represents the object that should be passed as the algorithm parameter
-// into `SubtleCrypto.Encrypt`, `SubtleCrypto.Decrypt`, `SubtleCrypto.WrapKey`, or
-// `SubtleCrypto.UnwrapKey`, when using the AES-CBC algorithm.
-type AESCbcParams struct {
-	// Name should be set to AES-CBC.
-	Name string
-
-	// Iv holds (an ArrayBuffer, a TypedArray, or a DataView) the initialization vector.
-	// Must be 16 bytes, unpredictable, and preferably cryptographically random.
-	// However, it need not be secret (for example, it may be transmitted unencrypted along with the ciphertext).
-	Iv []byte
-}
-
 // AESCtrParams represents the object that should be passed as the algorithm parameter
 // into `SubtleCrypto.Encrypt`, `SubtleCrypto.Decrypt`, `SubtleCrypto.WrapKey`, or
 // `SubtleCrypto.UnwrapKey`, when using the AES-CTR algorithm.
@@ -94,73 +81,20 @@ type AESGcmParams struct {
 	TagLength int
 }
 
-// AESKeyGenParams represents the object that should be passed as
-// the algorithm parameter into `SubtleCrypto.generateKey`, when generating
-// an AES key: that is, when the algorithm is identified as any
-// of AES-CBC, AES-CTR, AES-GCM, or AES-KW.
-type AESKeyGenParams struct {
-	// Name should be set to `AES-CBC`, `AES-CTR`, `AES-GCM`, or `AES-KW`.
-	Name AlgorithmIdentifier
-
-	// Length holds (a Number) the length of the key, in bits.
-	Length int
-}
-
 // AESKwParams represents the object that should be passed as the algorithm parameter
-// into `SubtleCrypto.Encrypt`, `SubtleCrypto.Decrypt`, `SubtleCrypto.WrapKey`, or
-// `SubtleCrypto.UnwrapKey`, when using the AES-KW algorithm.
 type AESKwParams struct {
 	// Name should be set to AlgorithmKindAesKw.
 	Name AlgorithmIdentifier
 }
 
-// The ECDSAParams represents the object that should be passed as the algorithm
-// parameter into `SubtleCrypto.Sign` or `SubtleCrypto.Verify“ when using the
-// ECDSA algorithm.
-type ECDSAParams struct {
-	// Name should be set to AlgorithmKindEcdsa.
-	Name AlgorithmIdentifier
-
-	// Hash identifies the name of the digest algorithm to use.
-	// You can use any of the following:
-	//   * [Sha256]
-	//   * [Sha384]
-	//   * [Sha512]
-	Hash AlgorithmIdentifier
-}
-
-// ECKeyGenParams  represents the object that should be passed as the algorithm
-// parameter into `SubtleCrypto.GenerateKey`, when generating any
-// elliptic-curve-based key pair: that is, when the algorithm is identified
-// as either of AlgorithmKindEcdsa or AlgorithmKindEcdh.
-type ECKeyGenParams struct {
-	// Name should be set to AlgorithmKindEcdsa or AlgorithmKindEcdh.
-	Name AlgorithmIdentifier
-
-	// NamedCurve holds (a String) the name of the curve to use.
-	// You can use any of the following: CurveKindP256, CurveKindP384, or CurveKindP521.
-	NamedCurve EllipticCurveKind
-}
-
-// ECKeyImportParams represents the object that should be passed as the algorithm parameter
-// into `SubtleCrypto.ImportKey` or `SubtleCrypto.UnwrapKey`, when generating any elliptic-curve-based
-// key pair: that is, when the algorithm is identified as either of ECDSA or ECDH.
-type ECKeyImportParams struct {
-	// Name should be set to AlgorithmKindEcdsa or AlgorithmKindEcdh.
-	Name AlgorithmIdentifier
-
-	// NamedCurve holds (a String) the name of the elliptic curve to use.
-	NamedCurve EllipticCurveKind
-}
-
 // ECDHKeyDeriveParams represents the object that should be passed as the algorithm
 // parameter into `SubtleCrypto.DeriveKey`, when using the ECDH algorithm.
-type ECDHKeyDeriveParams[Handle []byte] struct {
+type ECDHKeyDeriveParams[A CryptoKeyAlgorithm, H KeyHandle] struct {
 	// Name should be set to AlgorithmKindEcdh.
 	Name AlgorithmIdentifier
 
 	// Public holds (a CryptoKey) the public key of the other party.
-	Public CryptoKey[Handle]
+	Public CryptoKey[H]
 }
 
 // HKDFParams represents the object that should be passed as the algorithm parameter
@@ -299,22 +233,6 @@ type RSAHashedImportParams struct {
 	// Note that although you can technically pass SHA-1 here, this is strongly
 	// discouraged as it is considered vulnerable.
 	Hash AlgorithmIdentifier
-}
-
-// RSAOaepParams represents the object that should be passed as the algorithm parameter
-// into `SubtleCrypto.Encrypt`, `SubtleCrypto.Decrypt`, `SubtleCrypto.WrapKey`, or
-// `SubtleCrypto.UnwrapKey`, when using the RSA_OAEP algorithm.
-type RSAOaepParams struct {
-	// Name should be set to "RSA-OAEP"
-	Name string
-
-	// Label holds (an ArrayBuffer, a TypedArray, or a DataView) an array of bytes that does not
-	// itself need to be encrypted but which should be bound to the ciphertext.
-	// A digest of the label is part of the input to the encryption operation.
-	//
-	// Unless your application calls for a label, you can just omit this argument
-	// and it will not affect the security of the encryption operation.
-	Label []byte
 }
 
 // RSAPssParams represents the object that should be passed as the algorithm
