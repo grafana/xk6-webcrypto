@@ -154,34 +154,51 @@ const (
 	UnwrapKeyCryptoKeyUsage CryptoKeyUsage = "unwrapKey"
 )
 
-// UsageIntersection returns the intersection of two slices of CryptoKeyUsage.
+// InferCryptoKeyUsages infers the key usages for a given algorithm and key type.
+// It returns a slice of CryptoKeyUsage. If the algorithm is not supported, it returns nil.
+// It proves useful in places where we need to set a CryptoKey usages slice, depending
+// on the algorithm and key type.
 //
-// It implements the algorithm described in the [specification] to
-// determine the intersection of two slices of CryptoKeyUsage.
-//
-// [specification]: https://w3c.github.io/webcrypto/#concept-usage-intersection
-func UsageIntersection(a, b []CryptoKeyUsage) []CryptoKeyUsage {
-	var intersection []CryptoKeyUsage
-
-	for _, usage := range a {
-		// Note that the intersection algorithm is case-sensitive.
-		// It is also expected to return the occurrence in the a slice "as-is".
-		if containsUsage(b, usage) && !containsUsage(intersection, usage) {
-			intersection = append(intersection, usage)
+// This function follows the matching described in each algorithm GenerateKey method's
+// specification.
+func InferCryptoKeyUsages(a AlgorithmIdentifier, t CryptoKeyType) []CryptoKeyUsage {
+	switch t {
+	case SecretCryptoKeyType:
+		switch a {
+		case AESCbc, AESCtr, AESGcm:
+			return []CryptoKeyUsage{
+				EncryptCryptoKeyUsage,
+				DecryptCryptoKeyUsage,
+				WrapKeyCryptoKeyUsage,
+				UnwrapKeyCryptoKeyUsage,
+			}
+		case HMAC:
+			return []CryptoKeyUsage{
+				SignCryptoKeyUsage,
+				VerifyCryptoKeyUsage,
+			}
+		}
+	case PrivateCryptoKeyType:
+		switch a {
+		case ECDSA:
+			return []CryptoKeyUsage{SignCryptoKeyUsage}
+		case RSAOaep:
+			return []CryptoKeyUsage{DecryptCryptoKeyUsage, UnwrapKeyCryptoKeyUsage}
+		case RSAPss, RSASsaPkcs1v15:
+			return []CryptoKeyUsage{SignCryptoKeyUsage}
+		}
+	case PublicCryptoKeyType:
+		switch a {
+		case ECDSA:
+			return []CryptoKeyUsage{VerifyCryptoKeyUsage}
+		case RSAOaep:
+			return []CryptoKeyUsage{EncryptCryptoKeyUsage, WrapKeyCryptoKeyUsage}
+		case RSAPss, RSASsaPkcs1v15:
+			return []CryptoKeyUsage{VerifyCryptoKeyUsage}
 		}
 	}
 
-	return intersection
-}
-
-func containsUsage(usages []CryptoKeyUsage, usage CryptoKeyUsage) bool {
-	for _, u := range usages {
-		if u == usage {
-			return true
-		}
-	}
-
-	return false
+	return nil
 }
 
 // KeyFormat represents the format of a CryptoKey.
