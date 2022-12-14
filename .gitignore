@@ -1,3 +1,6 @@
+# Ignore test binary
+k6
+
 # Binaries for programs and plugins
 *.exe
 *.exe~

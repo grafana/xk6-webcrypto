@@ -4,6 +4,7 @@ go 1.18
 
 require (
 	github.com/dop251/goja v0.0.0-20220815083517-0c74f9139fd6
+	github.com/google/uuid v1.1.2
 	github.com/stretchr/testify v1.8.0
 	go.k6.io/k6 v0.40.0
 	gopkg.in/guregu/null.v3 v3.3.0
@@ -17,7 +18,6 @@ require (
 	github.com/go-sourcemap/sourcemap v2.1.4-0.20211119122758-180fcef48034+incompatible // indirect
 	github.com/golang/protobuf v1.5.2 // indirect
 	github.com/google/go-cmp v0.5.8 // indirect
-	github.com/google/uuid v1.1.2 // indirect
 	github.com/gorilla/websocket v1.5.0 // indirect
 	github.com/klauspost/compress v1.15.7 // indirect
 	github.com/mailru/easyjson v0.7.7 // indirect
