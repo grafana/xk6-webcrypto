@@ -1,6 +1,8 @@
 package webcrypto
 
 import (
+	"crypto"
+
 	"github.com/dop251/goja"
 	"go.k6.io/k6/js/modules"
 )
@@ -160,8 +162,45 @@ func (sc *SubtleCrypto) Digest(algorithm goja.Value, data interface{}) *goja.Pro
 //
 // The `keyUsages` parameter is an array of strings indicating what the key can be used for.
 func (sc *SubtleCrypto) GenerateKey(algorithm goja.Value, extractable bool, keyUsages []CryptoKeyUsage) *goja.Promise {
-	// TODO: implementation
-	return nil
+	promise, resolve, reject := sc.makeHandledPromise()
+
+	// 2.
+	// As the algorithm could either be a string or object, we export it to
+	// a interface{}, and let NormalizeAlgorithm() handle the rest.
+	normalizedAlgorithm, err := NormalizeAlgorithm(sc.vu.Runtime(), algorithm, OperationIdentifierGenerateKey)
+	if err != nil {
+		reject(err)
+		return promise
+	}
+
+	// 5.
+	go func() {
+		switch keygen := normalizedAlgorithm.(type) {
+		case CryptoKeyGenerator[[]byte]:
+			key, err := keygen.GenerateKey(extractable, keyUsages)
+			if err != nil {
+				reject(err)
+				return
+			}
+
+			resolve(key)
+			return
+		case CryptoKeyPairGenerator[crypto.PrivateKey, crypto.PublicKey]:
+			keypair, err := keygen.GenerateKeyPair(extractable, keyUsages)
+			if err != nil {
+				reject(err)
+				return
+			}
+
+			resolve(keypair)
+			return
+		default:
+			reject(NewError(0, NotSupportedError, "unsupported algorithm"))
+			return
+		}
+	}()
+
+	return promise
 }
 
 // DeriveKey can be used to derive a secret key from a master key.

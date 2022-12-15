@@ -5,6 +5,8 @@ import (
 	"fmt"
 	"hash"
 	"strings"
+
+	"github.com/dop251/goja"
 )
 
 // Algorithm represents
@@ -12,39 +14,53 @@ type Algorithm struct {
 	Name AlgorithmIdentifier `json:"name"`
 }
 
-// Ensure AesKeyGenParams implements the From interface.
-var _ From[map[string]interface{}, Algorithm] = Algorithm{}
+// NormalizedName returns the normalized algorithm identifier.
+// It implements the NormalizedIdentifier interface.
+func (a Algorithm) NormalizedName() AlgorithmIdentifier {
+	return a.Name
+}
 
-// From implements the From interface for Algorithm, and initializes the
-// Algorithm instance from a map[string]interface{}.
-func (a Algorithm) From(dict map[string]interface{}) (Algorithm, error) {
-	algorithm := Algorithm{}
-	nameFound := false
-
-	for key, value := range dict {
-		if strings.EqualFold(key, "name") {
-			name, ok := value.(string)
-			if !ok {
-				return Algorithm{}, NewError(0, NotSupportedError, "algorithm name is not a string")
-			}
-
-			name = strings.ToUpper(name)
-
-			if !IsAlgorithm(name) && !IsHashAlgorithm(name) {
-				return Algorithm{}, NewError(0, NotSupportedError, "algorithm name is not supported")
-			}
-
-			algorithm.Name = name
-			nameFound = true
-			break
-		}
+// NewAlgorithm creates a new Algorithm instance from a goja.Value.
+func NewAlgorithm(rt *goja.Runtime, v goja.Value) (Algorithm, error) {
+	if v == nil {
+		return Algorithm{}, NewError(0, SyntaxError, "algorithm is required")
 	}
 
-	if !nameFound {
-		return Algorithm{}, NewError(0, NotSupportedError, "algorithm name is not found")
+	var params Algorithm
+	if err := rt.ExportTo(v, &params); err != nil {
+		return Algorithm{}, NewError(0, SyntaxError, "algorithm is invalid")
 	}
 
-	return algorithm, nil
+	if err := params.Validate(); err != nil {
+		return Algorithm{}, err
+	}
+
+	if err := params.Normalize(); err != nil {
+		return Algorithm{}, err
+	}
+
+	return params, nil
+}
+
+// Validate validates the Algorithm instance fits the specifications
+// requirements. It implements the Validator interface.
+func (a Algorithm) Validate() error {
+	if a.Name == "" {
+		return NewError(0, SyntaxError, "name property is required")
+	}
+
+	if !IsAlgorithm(a.Name) && !IsHashAlgorithm(a.Name) {
+		return NewError(0, NotSupportedError, "algorithm name is not supported")
+	}
+
+	return nil
+}
+
+// Normalize normalizes the Algorithm instance. It implements the Normalizer
+// interface.
+func (a *Algorithm) Normalize() error {
+	a.Name = NormalizeAlgorithmName(a.Name)
+	return nil
 }
 
 // AlgorithmIdentifier represents the name of an algorithm.
@@ -88,42 +104,6 @@ const (
 	ECDH = "ECDH"
 )
 
-// NormalizeAlgorithmName returns the normalized algorithm name.
-//
-// As the algorithm name is case-insensitive, we normalize it to
-// our internal representation.
-func NormalizeAlgorithmName(name string) AlgorithmIdentifier {
-	algorithms := [...]AlgorithmIdentifier{
-		// RSA
-		RSASsaPkcs1v15,
-		RSAPss,
-		RSAOaep,
-
-		// HMAC
-		HMAC,
-
-		// AES
-		AESCtr,
-		AESCbc,
-		AESGcm,
-		AESKw,
-
-		// ECDSA
-		ECDSA,
-
-		// ECDH
-		ECDH,
-	}
-
-	for _, alg := range algorithms {
-		if strings.EqualFold(name, alg) {
-			return alg
-		}
-	}
-
-	return name
-}
-
 // HashAlgorithmIdentifier represents the name of a hash algorithm.
 //
 // Note that it is defined as an alias of string, instead of a dedicated type,
@@ -158,98 +138,6 @@ func Hasher(algorithm HashAlgorithmIdentifier) (func() hash.Hash, error) {
 	}
 
 	return nil, NewError(0, ImplementationError, fmt.Sprintf("unsupported hash algorithm: %s", algorithm))
-}
-
-// normalize algorithm
-// normalizeAlgorithm(algorithm: string | Algorithm, op: string):
-
-// NormalizeAlgorithm normalizes the given algorithm following the algorithm described in the WebCrypto [specification].
-//
-// [specification]: https://www.w3.org/TR/WebCryptoAPI/#algorithm-normalization-normalize-an-algorithm
-func NormalizeAlgorithm(algorithm interface{}, op OperationIdentifier) (interface{}, error) {
-	// var initialAlg AlgorithmIdentifier
-	var initialAlg map[string]interface{}
-
-	switch alg := algorithm.(type) {
-	case string:
-		return NormalizeAlgorithm(map[string]interface{}{"name": alg}, op)
-	case map[string]interface{}:
-		// FIXME: this should call the NewAlgorithmFrom method instead
-		if _, ok := alg["name"]; !ok {
-			return Algorithm{}, NewError(0, SyntaxError, "algorithm name is not found")
-		}
-
-		if _, ok := alg["name"].(string); !ok {
-			return Algorithm{}, NewError(0, SyntaxError, "algorithm name is not a string")
-		}
-
-		initialAlg = alg
-	default:
-		return Algorithm{}, NewError(0, ImplementationError, "unsupported algorithm type")
-	}
-
-	// 1.
-	registeredAlgorithms, ok := supportedAlgorithms[op]
-	if !ok {
-		return Algorithm{}, NewError(0, ImplementationError, fmt.Sprintf("unsupported operation: %s", op))
-	}
-
-	// 2. 3. 4.
-	algName, ok := initialAlg["name"].(string)
-	if !ok {
-		return Algorithm{}, NewError(0, SyntaxError, "algorithm name is not a string")
-	}
-
-	// 5.
-	var desiredType string
-	algNameRegistered := false
-	for key, value := range registeredAlgorithms {
-		if strings.EqualFold(key, algName) {
-			algName = key
-			desiredType = value
-			algNameRegistered = true
-			break
-		}
-	}
-
-	if !algNameRegistered {
-		return Algorithm{}, NewError(0, NotSupportedError, fmt.Sprintf("unsupported algorithm name: %s", algName))
-	}
-
-	// No further operation is needed if the algorithm does not have a desired type.
-	if desiredType == "" {
-		return Algorithm{Name: algName}, nil
-	}
-
-	// 6.
-	// FIXME: handle this case in later versions
-	err := NewError(0, ImplementationError, fmt.Sprintf("unsupported algorithm type: %s", desiredType))
-	return Algorithm{}, err
-}
-
-// As defined by the [specification]
-// [specification]: https://w3c.github.io/webcrypto/#algorithm-normalization-internal
-//
-//nolint:gochecknoglobals
-var supportedAlgorithms = map[OperationIdentifier]map[AlgorithmIdentifier]string{
-	OperationIdentifierDigest: {
-		Sha1:   "",
-		Sha256: "",
-		Sha384: "",
-		Sha512: "",
-	},
-	OperationIdentifierGenerateKey: {
-		RSASsaPkcs1v15: "RsaHashedKeyGenParams",
-		RSAPss:         "RsaHashedKeyGenParams",
-		RSAOaep:        "RsaHashedKeyGenParams",
-		ECDSA:          "EcKeyGenParams",
-		ECDH:           "EcKeyGenParams",
-		HMAC:           "HmacKeyGenParams",
-		AESCtr:         "AesKeyGenParams",
-		AESCbc:         "AesKeyGenParams",
-		AESGcm:         "AesKeyGenParams",
-		AESKw:          "AesKeyGenParams",
-	},
 }
 
 // IsAlgorithm returns true if the given algorithm is supported by the library.
@@ -303,47 +191,3 @@ func IsHashAlgorithm(algorithm string) bool {
 
 	return false
 }
-
-// OperationIdentifier represents the name of an operation.
-//
-// Note that it is defined as an alias of string, instead of a dedicated type,
-// to ensure it is handled as a string by goja.
-type OperationIdentifier = string
-
-const (
-	// OperationIdentifierSign represents the sign operation.
-	OperationIdentifierSign OperationIdentifier = "sign"
-
-	// OperationIdentifierVerify represents the verify operation.
-	OperationIdentifierVerify OperationIdentifier = "verify"
-
-	// OperationIdentifierEncrypt represents the encrypt operation.
-	OperationIdentifierEncrypt OperationIdentifier = "encrypt"
-
-	// OperationIdentifierDecrypt represents the decrypt operation.
-	OperationIdentifierDecrypt OperationIdentifier = "decrypt"
-
-	// OperationIdentifierDeriveBits represents the deriveBits operation.
-	OperationIdentifierDeriveBits OperationIdentifier = "deriveBits"
-
-	// OperationIdentifierDeriveKey represents the deriveKey operation.
-	OperationIdentifierDeriveKey OperationIdentifier = "deriveKey"
-
-	// OperationIdentifierWrapKey represents the wrapKey operation.
-	OperationIdentifierWrapKey OperationIdentifier = "wrapKey"
-
-	// OperationIdentifierUnwrapKey represents the unwrapKey operation.
-	OperationIdentifierUnwrapKey OperationIdentifier = "unwrapKey"
-
-	// OperationIdentifierImportKey represents the importKey operation.
-	OperationIdentifierImportKey OperationIdentifier = "importKey"
-
-	// OperationIdentifierExportKey represents the exportKey operation.
-	OperationIdentifierExportKey OperationIdentifier = "exportKey"
-
-	// OperationIdentifierGenerateKey represents the generateKey operation.
-	OperationIdentifierGenerateKey OperationIdentifier = "generateKey"
-
-	// OperationIdentifierDigest represents the digest operation.
-	OperationIdentifierDigest OperationIdentifier = "digest"
-)
