@@ -92,17 +92,17 @@ func (e EcKeyGenParams) Validate() error {
 	return nil
 }
 
-// Ensure EcKeyGenParams implements the CryptoKeyPairGenerator interface.
-var _ CryptoKeyPairGenerator[crypto.PrivateKey, crypto.PublicKey] = &EcKeyGenParams{}
+// Ensure EcKeyGenParams implements the KeyGenerator interface.
+var _ KeyGenerator = &EcKeyGenParams{}
 
 // GenerateKeyPair generates a new Elliptic Curve key pair.
 // It implements the CryptoKeyPairGenerator interface.
 //
 //nolint:funlen
-func (e EcKeyGenParams) GenerateKeyPair(
+func (e EcKeyGenParams) GenerateKey(
 	extractable bool,
 	keyUsages []CryptoKeyUsage,
-) (*CryptoKeyPair[crypto.PrivateKey, crypto.PublicKey], error) {
+) (interface{}, error) {
 	if e.Algorithm.Name != ECDSA && e.Algorithm.Name != ECDH {
 		return nil, NewError(0, ImplementationError, "invalid algorithm name")
 	}

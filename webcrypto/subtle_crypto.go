@@ -1,8 +1,6 @@
 package webcrypto
 
 import (
-	"crypto"
-
 	"github.com/dop251/goja"
 	"go.k6.io/k6/js/modules"
 )
@@ -175,29 +173,20 @@ func (sc *SubtleCrypto) GenerateKey(algorithm goja.Value, extractable bool, keyU
 
 	// 5.
 	go func() {
-		switch keygen := normalizedAlgorithm.(type) {
-		case CryptoKeyGenerator[[]byte]:
-			key, err := keygen.GenerateKey(extractable, keyUsages)
-			if err != nil {
-				reject(err)
-				return
-			}
-
-			resolve(key)
-			return
-		case CryptoKeyPairGenerator[crypto.PrivateKey, crypto.PublicKey]:
-			keypair, err := keygen.GenerateKeyPair(extractable, keyUsages)
-			if err != nil {
-				reject(err)
-				return
-			}
-
-			resolve(keypair)
-			return
-		default:
-			reject(NewError(0, NotSupportedError, "unsupported algorithm"))
+		generator, ok := normalizedAlgorithm.(KeyGenerator)
+		if !ok {
+			reject(NewError(0, NotSupportedError, "unsupported operation algorithm"))
 			return
 		}
+
+		key, err := generator.GenerateKey(extractable, keyUsages)
+		if err != nil {
+			reject(err)
+			return
+		}
+
+		resolve(key)
+		return
 	}()
 
 	return promise

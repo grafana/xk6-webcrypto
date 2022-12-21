@@ -67,7 +67,7 @@ func (a AesKeyGenParams) Validate() error {
 	)
 
 	if !isAesCbc && !isAesCtr && !isAesGcm && !isAesKw {
-		return NewError(0, NotSupportedError, "name property should be either AES-CBC, AES-CTR, or AES-GCM")
+		return NewError(0, NotSupportedError, "name property should be either AES-CBC, AES-CTR, AES-GCM or AES-KW")
 	}
 
 	if a.Length != 128 && a.Length != 192 && a.Length != 256 {
@@ -77,18 +77,18 @@ func (a AesKeyGenParams) Validate() error {
 	return nil
 }
 
-// Ensure AesKeyGenParams implements the CryptoKeyGenerator interface.
+// Ensure AesKeyGenParams implements the KeyGenerator interface.
 // We expect Aes crypto keys to hold their data as []byte.
-var _ CryptoKeyGenerator[[]byte] = &AesKeyGenParams{}
+var _ KeyGenerator = &AesKeyGenParams{}
 
 // GenerateKey generates a new AES key.
 //
-// It implements the CryptoKeyGenerator interface.
+// It implements the KeyGenerator interface.
 func (a AesKeyGenParams) GenerateKey(
 	// rt *goja.Runtime,
 	extractable bool,
 	keyUsages []CryptoKeyUsage,
-) (*CryptoKey[[]byte], error) {
+) (interface{}, error) {
 	// 1.
 	for _, usage := range keyUsages {
 		if strings.EqualFold(a.Algorithm.Name, AESKw) {

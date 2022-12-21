@@ -120,17 +120,17 @@ func (r RsaHashedKeyGenParams) Validate() error {
 	return nil
 }
 
-// Ensure RsaHashedKeyGenParams implements the CryptoKeyPairGenerator interface.
-var _ CryptoKeyPairGenerator[crypto.PrivateKey, crypto.PublicKey] = &RsaHashedKeyGenParams{}
+// Ensure RsaHashedKeyGenParams implements the KeyGenerator interface.
+var _ KeyGenerator = &RsaHashedKeyGenParams{}
 
 // GenerateKeyPair implements the CryptoKeyPairGenerator interface for RsaHashedKeyGenParams, and generates
 // a new RSA key pair.
 //
 //nolint:funlen
-func (r RsaHashedKeyGenParams) GenerateKeyPair(
+func (r RsaHashedKeyGenParams) GenerateKey(
 	extractable bool,
 	keyUsages []CryptoKeyUsage,
-) (*CryptoKeyPair[crypto.PrivateKey, crypto.PublicKey], error) {
+) (interface{}, error) {
 	var (
 		isSSAPKCS1v15 = strings.EqualFold(r.Name, RSASsaPkcs1v15)
 		isPSS         = strings.EqualFold(r.Name, RSAPss)

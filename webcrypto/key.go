@@ -83,18 +83,6 @@ type PublicHandle interface {
 	crypto.PublicKey | rsa.PublicKey | ecdsa.PublicKey
 }
 
-// CryptoKeyGenerator is an interface that represents a cryptographic key generator.
-// It is meant to be implemented by the various key generation algorithms.
-type CryptoKeyGenerator[H SecretHandle] interface {
-	GenerateKey(extractable bool, keyUsages []CryptoKeyUsage) (*CryptoKey[H], error)
-}
-
-// CryptoKeyPairGenerator is an interface that represents a cryptographic key pair generator.
-// It is meant to be implemented by the various key pair generation algorithms.
-type CryptoKeyPairGenerator[Private PrivateHandle, Public PublicHandle] interface {
-	GenerateKeyPair(extractable bool, keyUsages []CryptoKeyUsage) (*CryptoKeyPair[Private, Public], error)
-}
-
 // KeyAlgorithm specifies the algorithm for a key.
 type KeyAlgorithm struct {
 	// Name of the algorithm.

@@ -88,8 +88,8 @@ func (h HmacKeyGenParams) Validate() error {
 	return nil
 }
 
-// Ensure HmacKeyGenParams implements the CryptoKeyGenerator interface.
-var _ CryptoKeyGenerator[[]byte] = &HmacKeyGenParams{}
+// Ensure HmacKeyGenParams implements the KeyGenerator interface.
+var _ KeyGenerator = &HmacKeyGenParams{}
 
 // GenerateKey generates a HMAC key.
 //
@@ -101,7 +101,7 @@ var _ CryptoKeyGenerator[[]byte] = &HmacKeyGenParams{}
 func (h HmacKeyGenParams) GenerateKey(
 	extractable bool,
 	keyUsages []CryptoKeyUsage,
-) (*CryptoKey[[]byte], error) {
+) (interface{}, error) {
 	if h.Algorithm.Name != "HMAC" {
 		return nil, NewError(0, ImplementationError, "the algorithm is not HMAC")
 	}
