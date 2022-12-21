@@ -58,7 +58,7 @@ type RsaHashedKeyGenParams struct {
 // NewRsaHashedKeyGenParams creates a new RsaHashedKeyGenParams instance from a goja.Value.
 //
 //nolint:dupl
-func NewRsaHashedKeyGenParams(rt *goja.Runtime, v goja.Value) (RsaHashedKeyGenParams, error) {
+func NewRsaHashedKeyGenParams(rt *goja.Runtime, alg string, v goja.Value) (NormalizedAlgorithm, error) {
 	if v == nil {
 		return RsaHashedKeyGenParams{}, NewError(0, SyntaxError, "algorithm is required")
 	}
@@ -80,11 +80,10 @@ func NewRsaHashedKeyGenParams(rt *goja.Runtime, v goja.Value) (RsaHashedKeyGenPa
 		params.Hash = hash.Name
 	}
 
+	params.Name = alg
 	if err := params.Validate(); err != nil {
 		return RsaHashedKeyGenParams{}, err
 	}
-
-	params.Normalize()
 
 	return params, nil
 }
@@ -130,16 +129,6 @@ func (r RsaHashedKeyGenParams) Validate() error {
 	}
 
 	return nil
-}
-
-// Ensure RsaHashedKeyGenParams implements the Normalizer interface.
-var _ Normalizer = &RsaHashedKeyGenParams{}
-
-// Normalize normalizes the RsaHashedKeyGenParams instance. It implements
-// the Normalizer interface.
-func (r *RsaHashedKeyGenParams) Normalize() {
-	r.Name = NormalizeAlgorithmName(r.Name)
-	r.Hash = NormalizeHashAlgorithmName(r.Hash)
 }
 
 // Ensure RsaHashedKeyGenParams implements the CryptoKeyPairGenerator interface.
@@ -191,7 +180,7 @@ func (r RsaHashedKeyGenParams) GenerateKeyPair(
 
 	// 4. 5. 6. 7. 8.
 	algorithm := RsaHashedKeyAlgorithm{}
-	algorithm.Name = NormalizeAlgorithmName(r.Name)
+	algorithm.Name = r.Name
 	algorithm.ModulusLength = r.ModulusLength
 	algorithm.PublicExponent = r.PublicExponent
 	algorithm.Hash = KeyAlgorithm{Name: r.Hash}

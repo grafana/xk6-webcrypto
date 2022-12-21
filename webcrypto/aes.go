@@ -30,21 +30,21 @@ type AesKeyGenParams struct {
 //
 // The given value should be goja exportable to the AesKeyGenParams type. Its
 // fields will be validated, and normalized.
-func NewAesKeyGenParams(rt *goja.Runtime, v goja.Value) (AesKeyGenParams, error) {
-	if v == nil {
-		return AesKeyGenParams{}, NewError(0, SyntaxError, "algorithm is required")
+func NewAesKeyGenParams(rt *goja.Runtime, alg string, v goja.Value) (NormalizedAlgorithm, error) {
+	if alg == "" {
+		return nil, NewError(0, SyntaxError, "algorithm is required")
 	}
 
 	var params AesKeyGenParams
 	if err := rt.ExportTo(v, &params); err != nil {
-		return AesKeyGenParams{}, NewError(0, SyntaxError, "algorithm is invalid")
+		return nil, NewError(0, SyntaxError, "algorithm is invalid")
 	}
+
+	params.Name = alg
 
 	if err := params.Validate(); err != nil {
-		return AesKeyGenParams{}, err
+		return nil, err
 	}
-
-	params.Normalize()
 
 	return params, nil
 }
@@ -75,15 +75,6 @@ func (a AesKeyGenParams) Validate() error {
 	}
 
 	return nil
-}
-
-// Ensure AesKeyGenParams implements the Normalizer interface.
-var _ Normalizer = &AesKeyGenParams{}
-
-// Normalize normalizes the AesKeyGenParams instance. It implements the
-// Normalizer interface.
-func (a *AesKeyGenParams) Normalize() {
-	a.Name = NormalizeAlgorithmName(a.Name)
 }
 
 // Ensure AesKeyGenParams implements the CryptoKeyGenerator interface.

@@ -51,8 +51,8 @@ type EcKeyGenParams struct {
 }
 
 // NewEcKeyGenParams creates a new EcKeyGenParams instance from a goja.Value.
-func NewEcKeyGenParams(rt *goja.Runtime, v goja.Value) (EcKeyGenParams, error) {
-	if v == nil {
+func NewEcKeyGenParams(rt *goja.Runtime, alg string, v goja.Value) (NormalizedAlgorithm, error) {
+	if alg == "" {
 		return EcKeyGenParams{}, NewError(0, SyntaxError, "algorithm is required")
 	}
 
@@ -61,11 +61,12 @@ func NewEcKeyGenParams(rt *goja.Runtime, v goja.Value) (EcKeyGenParams, error) {
 		return EcKeyGenParams{}, NewError(0, SyntaxError, "algorithm is invalid")
 	}
 
+	params.Name = alg
+	params.NamedCurve = EllipticCurveKind(strings.ToUpper(string(params.NamedCurve)))
+
 	if err := params.Validate(); err != nil {
 		return EcKeyGenParams{}, err
 	}
-
-	params.Normalize()
 
 	return params, nil
 }
@@ -89,16 +90,6 @@ func (e EcKeyGenParams) Validate() error {
 	}
 
 	return nil
-}
-
-// Ensure EcKeyGenParams implements the Normalizer interface.
-var _ Normalizer = &EcKeyGenParams{}
-
-// Normalize normalizes the algorithm name and elliptic curve name. It implements the
-// Normalizer interface.
-func (e *EcKeyGenParams) Normalize() {
-	e.Name = NormalizeAlgorithmName(e.Name)
-	e.NamedCurve = EllipticCurveKind(strings.ToUpper(string(e.NamedCurve)))
 }
 
 // Ensure EcKeyGenParams implements the CryptoKeyPairGenerator interface.
@@ -166,7 +157,7 @@ func (e EcKeyGenParams) GenerateKeyPair(
 	// 4. 5. 6.
 	algorithm := EcKeyAlgorithm{
 		KeyAlgorithm: KeyAlgorithm{
-			Name: NormalizeAlgorithmName(e.Algorithm.Name),
+			Name: e.Algorithm.Name,
 		},
 		NamedCurve: e.NamedCurve,
 	}

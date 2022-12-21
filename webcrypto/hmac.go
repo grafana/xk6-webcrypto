@@ -39,8 +39,8 @@ type HmacKeyGenParams struct {
 // NewHmacKeyGenParams creates a new HmacKeyGenParams instance from a goja.Value.
 //
 //nolint:dupl
-func NewHmacKeyGenParams(rt *goja.Runtime, v goja.Value) (HmacKeyGenParams, error) {
-	if v == nil {
+func NewHmacKeyGenParams(rt *goja.Runtime, alg string, v goja.Value) (NormalizedAlgorithm, error) {
+	if alg == "" {
 		return HmacKeyGenParams{}, NewError(0, SyntaxError, "algorithm is required")
 	}
 
@@ -60,12 +60,12 @@ func NewHmacKeyGenParams(rt *goja.Runtime, v goja.Value) (HmacKeyGenParams, erro
 		}
 		params.Hash = hash.Name
 	}
+	params.Hash = NormalizeHashAlgorithmName(params.Hash)
+	params.Name = alg
 
 	if err := params.Validate(); err != nil {
 		return HmacKeyGenParams{}, err
 	}
-
-	params.Normalize()
 
 	return params, nil
 }
@@ -97,16 +97,6 @@ func (h HmacKeyGenParams) Validate() error {
 	}
 
 	return nil
-}
-
-// Ensure HmacKeyGenParams implements the Normalizer interface.
-var _ Normalizer = &HmacKeyGenParams{}
-
-// Normalize normalizes the HmacKeyGenParams instance. It implements the
-// Normalizer interface.
-func (h *HmacKeyGenParams) Normalize() {
-	h.Name = NormalizeAlgorithmName(h.Name)
-	h.Hash = NormalizeHashAlgorithmName(h.Hash)
 }
 
 // Ensure HmacKeyGenParams implements the CryptoKeyGenerator interface.
@@ -142,13 +132,13 @@ func (h HmacKeyGenParams) GenerateKey(
 	if h.Length == nil {
 		switch h.Hash {
 		case Sha1:
-			length = 512
+			length = 512 // FIXME: ?
 		case Sha256:
-			length = 512
+			length = 512 // FIXME: ?
 		case Sha384:
-			length = 1024
+			length = 1024 // FIXME: ?
 		case Sha512:
-			length = 1024
+			length = 1024 // FIXME: ?
 		default:
 			return nil, NewError(0, OperationError, "unsupported hash algorithm")
 		}
@@ -178,9 +168,9 @@ func (h HmacKeyGenParams) GenerateKey(
 
 	// 6. 7. 8. 9. 10.
 	algorithm := HmacKeyAlgorithm{}
-	algorithm.Name = NormalizeAlgorithmName(h.Name)
+	algorithm.Name = h.Name
 	hash := KeyAlgorithm{}
-	hash.Name = NormalizeAlgorithmName(h.Hash)
+	hash.Name = h.Hash
 	algorithm.Hash = hash
 	algorithm.Length = length
 

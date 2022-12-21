@@ -5,8 +5,6 @@ import (
 	"fmt"
 	"hash"
 	"strings"
-
-	"github.com/dop251/goja"
 )
 
 // Algorithm represents
@@ -20,28 +18,6 @@ func (a Algorithm) NormalizedName() AlgorithmIdentifier {
 	return a.Name
 }
 
-// NewAlgorithm creates a new Algorithm instance from a goja.Value.
-func NewAlgorithm(rt *goja.Runtime, v goja.Value) (Algorithm, error) {
-	if v == nil {
-		return Algorithm{}, NewError(0, SyntaxError, "algorithm is required")
-	}
-
-	var params Algorithm
-	if err := rt.ExportTo(v, &params); err != nil {
-		return Algorithm{}, NewError(0, SyntaxError, "algorithm is invalid")
-	}
-
-	if err := params.Validate(); err != nil {
-		return Algorithm{}, err
-	}
-
-	if err := params.Normalize(); err != nil {
-		return Algorithm{}, err
-	}
-
-	return params, nil
-}
-
 // Validate validates the Algorithm instance fits the specifications
 // requirements. It implements the Validator interface.
 func (a Algorithm) Validate() error {
@@ -53,13 +29,6 @@ func (a Algorithm) Validate() error {
 		return NewError(0, NotSupportedError, "algorithm name is not supported")
 	}
 
-	return nil
-}
-
-// Normalize normalizes the Algorithm instance. It implements the Normalizer
-// interface.
-func (a *Algorithm) Normalize() error {
-	a.Name = NormalizeAlgorithmName(a.Name)
 	return nil
 }
 

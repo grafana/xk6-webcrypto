@@ -14,12 +14,6 @@ type Validator interface {
 	Validate() error
 }
 
-// Normalizer is an interface that can be implemented by types that need to
-// normalize their values.
-type Normalizer interface {
-	Normalize()
-}
-
 // NormalizedAlgorithm represents a normalized algorithm.
 type NormalizedAlgorithm interface {
 	NormalizedName() AlgorithmIdentifier
@@ -28,105 +22,79 @@ type NormalizedAlgorithm interface {
 // NormalizeAlgorithm normalizes the given algorithm following the algorithm described in the WebCrypto [specification].
 //
 // [specification]: https://www.w3.org/TR/WebCryptoAPI/#algorithm-normalization-normalize-an-algorithm
-func NormalizeAlgorithm(rt *goja.Runtime, algorithm goja.Value, op OperationIdentifier) (NormalizedAlgorithm, error) {
+func NormalizeAlgorithm(rt *goja.Runtime, params goja.Value, op OperationIdentifier) (NormalizedAlgorithm, error) {
 	// 1.
-	registeredAlgorithms, ok := supportedAlgorithms[op]
+	possibleAlgs, ok := supportedAlgorithms[op]
 	if !ok {
-		return Algorithm{}, NewError(0, ImplementationError, fmt.Sprintf("unsupported operation: %s", op))
+		return nil, NewError(0, ImplementationError, fmt.Sprintf("unsupported operation: %s", op))
 	}
 
 	// 2.
-	var initialAlg Algorithm
-	var err error
-
-	switch algorithm.ExportType().Kind() {
-	case reflect.String:
-		obj := rt.NewObject()
-		err = obj.Set("name", algorithm.Export())
-		if err != nil {
-			// 3.
-			return Algorithm{}, NewError(0, ImplementationError, "unable to convert the string argument to an object")
-		}
-		return NormalizeAlgorithm(rt, obj, op)
-	case reflect.Map, reflect.Struct:
-		initialAlg, err = NewAlgorithm(rt, algorithm)
-		if err != nil {
-			// 3.
-			return Algorithm{}, err
-		}
-	default:
-		return Algorithm{}, NewError(0, SyntaxError, "unsupported algorithm type")
+	rawName := extractAlgorithmName(rt, params)
+	if rawName == "" {
+		return nil, NewError(0, SyntaxError, "algorithm name is required")
 	}
 
-	// 4.
-	algName := initialAlg.Name
-
-	// 5.
-	var desiredType string
-	algNameRegistered := false
-	for key, value := range registeredAlgorithms {
-		if strings.EqualFold(key, algName) {
-			algName = key
-			desiredType = value
-			algNameRegistered = true
-			break
-		}
-	}
-
-	if !algNameRegistered {
-		return Algorithm{}, NewError(0, NotSupportedError, fmt.Sprintf("unsupported algorithm name: %s", algName))
-	}
-
-	// No further operation is needed if the algorithm does not have a desired type.
-	if desiredType == "" {
-		return Algorithm{Name: algName}, nil
+	// 3.
+	alg := normalizeAlgorithmName(rawName)
+	constructor, ok := possibleAlgs[alg]
+	if !ok {
+		return nil, NewError(0, NotSupportedError, fmt.Sprintf("unsupported algorithm: %s", rawName))
 	}
 
 	// 6.
-	switch desiredType {
-	case "AesKeyGenParams":
-		return NewAesKeyGenParams(rt, algorithm)
-	case "EcKeyGenParams":
-		return NewEcKeyGenParams(rt, algorithm)
-	case "HmacKeyGenParams":
-		return NewHmacKeyGenParams(rt, algorithm)
-	case "RsaHashedKeyGenParams":
-		return NewRsaHashedKeyGenParams(rt, algorithm)
-	default:
-		return Algorithm{}, NewError(0, ImplementationError, fmt.Sprintf("unsupported algorithm type: %s", desiredType))
-	}
+	return constructor(rt, alg, params)
 }
+
+// extractAlgorithmName extracts the algorithm name from the given value.
+func extractAlgorithmName(rt *goja.Runtime, v goja.Value) string {
+	switch v.ExportType().Kind() {
+	case reflect.String:
+		return v.ToString().String()
+	case reflect.Map, reflect.Struct:
+		name := v.ToObject(rt).Get("name")
+		if name == nil {
+			return ""
+		}
+
+		return name.ToString().String()
+	}
+
+	return ""
+}
+
+type AlgConstructor func(rt *goja.Runtime, alg string, v goja.Value) (NormalizedAlgorithm, error)
 
 // As defined by the [specification]
 // [specification]: https://w3c.github.io/webcrypto/#algorithm-normalization-internal
 //
 //nolint:gochecknoglobals
-var supportedAlgorithms = map[OperationIdentifier]map[AlgorithmIdentifier]string{
+var supportedAlgorithms = map[OperationIdentifier]map[AlgorithmIdentifier]AlgConstructor{
 	OperationIdentifierDigest: {
-		Sha1:   "",
-		Sha256: "",
-		Sha384: "",
-		Sha512: "",
+		Sha1:   NewSha,
+		Sha256: NewSha,
+		Sha384: NewSha,
+		Sha512: NewSha,
 	},
 	OperationIdentifierGenerateKey: {
-		RSASsaPkcs1v15: "RsaHashedKeyGenParams",
-		RSAPss:         "RsaHashedKeyGenParams",
-		RSAOaep:        "RsaHashedKeyGenParams",
-		ECDSA:          "EcKeyGenParams",
-		ECDH:           "EcKeyGenParams",
-		HMAC:           "HmacKeyGenParams",
-		AESCtr:         "AesKeyGenParams",
-		AESCbc:         "AesKeyGenParams",
-		AESGcm:         "AesKeyGenParams",
-		AESKw:          "AesKeyGenParams",
+		RSASsaPkcs1v15: NewRsaHashedKeyGenParams,
+		RSAPss:         NewRsaHashedKeyGenParams,
+		RSAOaep:        NewRsaHashedKeyGenParams,
+		ECDSA:          NewEcKeyGenParams,
+		ECDH:           NewEcKeyGenParams,
+		HMAC:           NewHmacKeyGenParams,
+		AESCtr:         NewAesKeyGenParams,
+		AESCbc:         NewAesKeyGenParams,
+		AESGcm:         NewAesKeyGenParams,
+		AESKw:          NewAesKeyGenParams,
 	},
 }
 
-// NormalizeAlgorithmName returns the normalized algorithm name.
+// normalizeAlgorithmName returns the normalized algorithm name.
 //
 // As the algorithm name is case-insensitive, we normalize it to
 // our internal representation.
-func NormalizeAlgorithmName(name string) AlgorithmIdentifier {
+func normalizeAlgorithmName(name string) AlgorithmIdentifier {
 	algorithms := [...]AlgorithmIdentifier{
 		// RSA
 		RSASsaPkcs1v15,
@@ -155,7 +123,8 @@ func NormalizeAlgorithmName(name string) AlgorithmIdentifier {
 		}
 	}
 
-	return name
+	// it's not a known algorithm, so we return empty
+	return ""
 }
 
 // NormalizeHashAlgorithmName returns the normalized hash algorithm name.
@@ -177,7 +146,8 @@ func NormalizeHashAlgorithmName(name string) HashAlgorithmIdentifier {
 		}
 	}
 
-	return name
+	// it's not a known algorithm, so we return empty
+	return ""
 }
 
 // OperationIdentifier represents the name of an operation.
