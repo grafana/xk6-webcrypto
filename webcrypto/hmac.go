@@ -37,8 +37,6 @@ type HmacKeyGenParams struct {
 }
 
 // NewHmacKeyGenParams creates a new HmacKeyGenParams instance from a goja.Value.
-//
-//nolint:dupl
 func NewHmacKeyGenParams(rt *goja.Runtime, alg string, v goja.Value) (NormalizedAlgorithm, error) {
 	if alg == "" {
 		return HmacKeyGenParams{}, NewError(0, SyntaxError, "algorithm is required")
@@ -51,16 +49,7 @@ func NewHmacKeyGenParams(rt *goja.Runtime, alg string, v goja.Value) (Normalized
 
 	// Because the hash field can either be a string or an object, we need to
 	// handle it specifically.
-	if hash, ok := v.ToObject(rt).Get("hash").Export().(string); ok {
-		params.Hash = hash
-	} else {
-		var hash Algorithm
-		if err := rt.ExportTo(v.ToObject(rt).Get("hash"), &hash); err != nil {
-			return HmacKeyGenParams{}, NewError(0, SyntaxError, "hash algorithm is invalid")
-		}
-		params.Hash = hash.Name
-	}
-	params.Hash = NormalizeHashAlgorithmName(params.Hash)
+	params.Hash = NormalizeHashAlgorithmName(extractHash(rt, v))
 	params.Name = alg
 
 	if err := params.Validate(); err != nil {

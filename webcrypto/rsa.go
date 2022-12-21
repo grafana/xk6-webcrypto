@@ -56,10 +56,8 @@ type RsaHashedKeyGenParams struct {
 }
 
 // NewRsaHashedKeyGenParams creates a new RsaHashedKeyGenParams instance from a goja.Value.
-//
-//nolint:dupl
 func NewRsaHashedKeyGenParams(rt *goja.Runtime, alg string, v goja.Value) (NormalizedAlgorithm, error) {
-	if v == nil {
+	if alg == "" || v == nil {
 		return RsaHashedKeyGenParams{}, NewError(0, SyntaxError, "algorithm is required")
 	}
 
@@ -70,16 +68,7 @@ func NewRsaHashedKeyGenParams(rt *goja.Runtime, alg string, v goja.Value) (Norma
 
 	// Because the hash field can either be a string or an object, we need to
 	// handle it specifically.
-	if hash, ok := v.ToObject(rt).Get("hash").Export().(string); ok {
-		params.Hash = hash
-	} else {
-		var hash Algorithm
-		if err := rt.ExportTo(v.ToObject(rt).Get("hash"), &hash); err != nil {
-			return RsaHashedKeyGenParams{}, NewError(0, SyntaxError, "hash algorithm is invalid")
-		}
-		params.Hash = hash.Name
-	}
-
+	params.Hash = NormalizeHashAlgorithmName(extractHash(rt, v))
 	params.Name = alg
 	if err := params.Validate(); err != nil {
 		return RsaHashedKeyGenParams{}, err

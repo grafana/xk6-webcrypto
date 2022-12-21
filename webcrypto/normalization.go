@@ -47,6 +47,7 @@ func NormalizeAlgorithm(rt *goja.Runtime, params goja.Value, op OperationIdentif
 }
 
 // extractAlgorithmName extracts the algorithm name from the given value.
+// if no algorithm is specified, an empty string is returned.
 func extractAlgorithmName(rt *goja.Runtime, v goja.Value) string {
 	switch v.ExportType().Kind() {
 	case reflect.String:
@@ -58,6 +59,30 @@ func extractAlgorithmName(rt *goja.Runtime, v goja.Value) string {
 		}
 
 		return name.ToString().String()
+	}
+
+	return ""
+}
+
+// extractHash extracts the hash algorithm name from the given value.
+// if no hash is specified, an empty string is returned.
+func extractHash(rt *goja.Runtime, params goja.Value) string {
+	v := params.ToObject(rt).Get("hash")
+	if v == nil {
+		return ""
+	}
+
+	switch v.ExportType().Kind() {
+	case reflect.String:
+		return v.ToString().String()
+	case reflect.Map, reflect.Struct:
+		// case when hash is an object, like {"name": "SHA-256"}
+		hash := v.ToObject(rt).Get("name")
+		if hash == nil {
+			return ""
+		}
+
+		return hash.ToString().String()
 	}
 
 	return ""
