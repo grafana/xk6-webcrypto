@@ -36,9 +36,82 @@ type SubtleCrypto struct {
 // The `key` parameter should be a `CryptoKey` to be used for encryption.
 //
 // The `data` parameter should contain the data to be encryption.
-func (sc *SubtleCrypto) Encrypt(algorithm goja.Value, key CryptoKey[[]byte], data []byte) *goja.Promise {
-	// TODO: implementation
-	return nil
+func (sc *SubtleCrypto) Encrypt(algorithm goja.Value, key goja.Value, data goja.Value) *goja.Promise {
+	promise, resolve, reject := sc.makeHandledPromise()
+
+	// Validate that the data we received is either an ArrayBuffer, TypedArray, or DataView
+	// This uses the technique described in https://github.com/dop251/goja/issues/379#issuecomment-1164441879
+	var (
+		isArrayBuffer = IsInstanceOf(sc.vu.Runtime(), data, ArrayBufferConstructor)
+		isDataView    = IsInstanceOf(sc.vu.Runtime(), data, DataViewConstructor)
+		isTypedArray  = IsTypedArray(sc.vu.Runtime(), data)
+	)
+
+	if !isArrayBuffer && !isDataView && !isTypedArray {
+		reject(fmt.Errorf("data must be an ArrayBuffer, TypedArray, or DataView"))
+		return promise
+	}
+
+	// 2.
+	// Cast the data to a Goja Object, and, as we're now sure it's
+	// either an ArrayBuffer, or a view on an ArrayBuffer, we can
+	// get the underlying ArrayBuffer by exporting its buffer property
+	// to a Goja ArrayBuffer, and then getting its underlying Go slice
+	// by calling the `Bytes()` method.
+	//
+	// Doing so conviniently also copies the underlying buffer, which
+	// is required by the specification.
+	// See https://www.w3.org/TR/WebCryptoAPI/#SubtleCrypto-method-digest
+	asObject := data.ToObject(sc.vu.Runtime())
+	arrayBuffer, ok := asObject.Export().(goja.ArrayBuffer)
+	if !ok {
+		reject(fmt.Errorf("data must be an ArrayBuffer, TypedArray, or DataView"))
+		return promise
+	}
+	bytes := arrayBuffer.Bytes()
+
+	// The specification explicitly requires us to copy the underlying
+	// bytes held by the array buffer
+	bytesCopy := make([]byte, len(bytes))
+	copy(bytesCopy, bytes)
+
+	// 3.
+	// As the algorithm could either be a string or object, we export it to
+	// a interface{}, and let NormalizeAlgorithm() handle the rest.
+	normalizedAlgorithm, err := NormalizeAlgorithm(sc.vu.Runtime(), algorithm, OperationIdentifierEncrypt)
+	if err != nil {
+		// 4.
+		reject(err)
+		return promise
+	}
+
+	// 5. 6.
+	go func() {
+		var value goja.ArrayBuffer
+		var err error
+
+		switch params := normalizedAlgorithm.(type) {
+		case RsaOaepParams:
+			value, err = params.Encrypt(sc.vu.Runtime(), key, bytesCopy)
+		default:
+			reject(NewError(0, NotSupportedError, "Unsupported algorithm"))
+			return
+		}
+
+		if err != nil {
+			reject(err)
+			return
+		}
+
+		resolve(value)
+	}()
+
+	return promise
+}
+
+// Encrypter is an interface that can be implemented by algorithms that can encrypt data.
+type Encrypter interface {
+	Encrypt(rt *goja.Runtime, key goja.Value, data []byte) (goja.ArrayBuffer, error)
 }
 
 // Decrypt decrypts some encrypted data.
