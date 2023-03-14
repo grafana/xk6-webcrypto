@@ -248,22 +248,6 @@ type RSAHashedImportParams struct {
 	Hash AlgorithmIdentifier
 }
 
-// RSAOaepParams represents the object that should be passed as the algorithm parameter
-// into `SubtleCrypto.Encrypt`, `SubtleCrypto.Decrypt`, `SubtleCrypto.WrapKey`, or
-// `SubtleCrypto.UnwrapKey`, when using the RSA_OAEP algorithm.
-type RSAOaepParams struct {
-	// Name should be set to "RSA-OAEP"
-	Name string
-
-	// Label holds (an ArrayBuffer, a TypedArray, or a DataView) an array of bytes that does not
-	// itself need to be encrypted but which should be bound to the ciphertext.
-	// A digest of the label is part of the input to the encryption operation.
-	//
-	// Unless your application calls for a label, you can just omit this argument
-	// and it will not affect the security of the encryption operation.
-	Label []byte
-}
-
 // RSAPssParams represents the object that should be passed as the algorithm
 // parameter into `SubtleCrypto.Sign` or `SubtleCrypto.Verify`, when using the
 // RSA-PSS algorithm.
