@@ -3,6 +3,7 @@ package webcrypto
 import (
 	"crypto"
 	"errors"
+	"fmt"
 	"hash"
 
 	"github.com/dop251/goja"
