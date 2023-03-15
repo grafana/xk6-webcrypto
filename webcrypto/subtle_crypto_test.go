@@ -44,3 +44,30 @@ func TestSubtleCryptoGenerateKey(t *testing.T) {
 		assert.NoError(t, gotScriptErr)
 	})
 }
+
+func TestSubtleCryptoEncrypt(t *testing.T) {
+	t.Parallel()
+
+	t.Run("aes cbc", func(t *testing.T) {
+		t.Parallel()
+
+		ts := newTestSetup(t)
+
+		gotScriptErr := ts.ev.Start(func() error {
+			cbcVectors, err := CompileFile("./tests/subtle_crypto/encrypt_decrypt", "aes_cbc_vectors.js")
+			require.NoError(t, err)
+
+			_, err = ts.rt.RunProgram(cbcVectors)
+			require.NoError(t, err)
+
+			testProgram, err := CompileFile("./tests/subtle_crypto/encrypt_decrypt", "aes.js")
+			require.NoError(t, err)
+
+			_, err = ts.rt.RunProgram(testProgram)
+
+			return err
+		})
+
+		assert.NoError(t, gotScriptErr)
+	})
+}
