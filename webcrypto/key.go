@@ -23,6 +23,8 @@ type CryptoKeyPair struct {
 // methods `SubtleCrypto.generateKey`, `SubtleCrypto.DeriveKey`, `SubtleCrypto.ImportKey`,
 // or `SubtleCrypto.UnwrapKey`.
 type CryptoKey struct {
+	obj *goja.Object
+
 	// Type holds the type of the key.
 	Type CryptoKeyType `json:"type"`
 

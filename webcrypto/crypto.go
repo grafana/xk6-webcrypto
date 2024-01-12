@@ -13,10 +13,11 @@ import (
 
 // Crypto represents the Crypto interface of the Web Crypto API.
 type Crypto struct {
-	vu modules.VU
+	vu  modules.VU
+	obj *goja.Object
 
-	Subtle    *SubtleCrypto `json:"subtle"`
-	CryptoKey *CryptoKey    `json:"CryptoKey"`
+	Subtle    *SubtleCrypto
+	CryptoKey *CryptoKey
 }
 
 // GetRandomValues lets you get cryptographically strong random values.

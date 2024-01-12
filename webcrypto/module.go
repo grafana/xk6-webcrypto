@@ -3,6 +3,7 @@ package webcrypto
 
 import (
 	"github.com/dop251/goja"
+	"go.k6.io/k6/js/common"
 	"go.k6.io/k6/js/modules"
 )
 
@@ -33,15 +34,34 @@ func New() *RootModule {
 // NewModuleInstance implements the modules.Module interface and returns
 // a new instance for each VU.
 func (*RootModule) NewModuleInstance(vu modules.VU) modules.Instance {
-	vu.Runtime().SetFieldNameMapper(goja.TagFieldNameMapper("json", true))
+	rt := vu.Runtime()
+
+	ck := &CryptoKey{
+		obj: rt.NewObject(),
+	}
+
+	c := &Crypto{
+		obj: rt.NewObject(),
+		vu:  vu,
+		Subtle: &SubtleCrypto{
+			vu: vu,
+		},
+		CryptoKey: ck,
+	}
+
+	must(rt, c.obj.DefineDataProperty(
+		"subtle", rt.ToValue(c.Subtle), goja.FLAG_TRUE, goja.FLAG_FALSE, goja.FLAG_TRUE))
+	must(rt, c.obj.DefineDataProperty(
+		"CryptoKey", rt.ToValue(c.CryptoKey), goja.FLAG_TRUE, goja.FLAG_FALSE, goja.FLAG_TRUE))
+
+	must(rt, c.obj.DefineDataProperty(
+		"getRandomValues", rt.ToValue(c.GetRandomValues), goja.FLAG_FALSE, goja.FLAG_FALSE, goja.FLAG_TRUE))
+	must(rt, c.obj.DefineDataProperty(
+		"randomUUID", rt.ToValue(c.RandomUUID), goja.FLAG_FALSE, goja.FLAG_FALSE, goja.FLAG_TRUE))
 
 	return &ModuleInstance{
-		vu: vu,
-		Crypto: &Crypto{
-			vu:        vu,
-			Subtle:    &SubtleCrypto{vu: vu},
-			CryptoKey: &CryptoKey{},
-		},
+		vu:     vu,
+		Crypto: c,
 	}
 }
 
@@ -49,6 +69,13 @@ func (*RootModule) NewModuleInstance(vu modules.VU) modules.Instance {
 // the exports of the JS module.
 func (mi *ModuleInstance) Exports() modules.Exports {
 	return modules.Exports{Named: map[string]interface{}{
-		"crypto": mi.Crypto,
+		"crypto": mi.Crypto.obj,
 	}}
+}
+
+// must is a small helper that will panic if err is not nil.
+func must(rt *goja.Runtime, err error) {
+	if err != nil {
+		common.Throw(rt, err)
+	}
 }
