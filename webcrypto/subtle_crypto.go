@@ -94,7 +94,16 @@ func (sc *SubtleCrypto) Encrypt( //nolint:dupl // we have two similar methods
 
 	callback := sc.vu.RegisterCallback()
 	go func() {
-		result, err := encrypter.Encrypt(plaintext, ck)
+		result, err := func() (result []byte, err error) {
+			defer func() {
+				if r := recover(); r != nil {
+					err = NewError(OperationError, fmt.Sprintf("an unexpected error during encrypting happened: %s", r))
+				}
+			}()
+
+			result, err = encrypter.Encrypt(plaintext, ck)
+			return
+		}()
 
 		callback(func() error {
 			if err != nil {
@@ -186,7 +195,16 @@ func (sc *SubtleCrypto) Decrypt( //nolint:dupl // we have two similar methods
 
 	callback := sc.vu.RegisterCallback()
 	go func() {
-		result, err := decrypter.Decrypt(ciphertext, ck)
+		result, err := func() (result []byte, err error) {
+			defer func() {
+				if r := recover(); r != nil {
+					err = NewError(OperationError, fmt.Sprintf("an unexpected error during decrypting happened: %s", r))
+				}
+			}()
+
+			result, err = decrypter.Decrypt(ciphertext, ck)
+			return
+		}()
 
 		callback(func() error {
 			if err != nil {
