@@ -595,8 +595,6 @@ func (sc *SubtleCrypto) GenerateKey(
 // using `SubtleCrypto.ExportKey` or `SubtleCrypto.WrapKey`.
 //
 // The `keyUsages` parameter is an array of strings indicating what the key can be used for.
-//
-//nolint:revive // remove the nolint directive when the method is implemented
 func (sc *SubtleCrypto) DeriveKey(
 	algorithm sobek.Value,
 	baseKey sobek.Value,
@@ -604,8 +602,71 @@ func (sc *SubtleCrypto) DeriveKey(
 	extractable bool,
 	keyUsages []CryptoKeyUsage,
 ) *sobek.Promise {
-	// TODO: implementation
-	return nil
+	rt := sc.vu.Runtime()
+
+	var (
+		kd KeyDeriver
+	)
+
+	err := func() error {
+		normalized, err := normalizeAlgorithm(rt, algorithm, OperationIdentifierDeriveKey)
+		if err != nil {
+			return err
+		}
+
+		kd, err = newKeyDeriver(rt, normalized, algorithm, baseKey, derivedKeyAlgorithm, extractable, keyUsages)
+		if err != nil {
+			return err
+		}
+
+		return nil
+	}()
+
+	promise, resolve, reject := rt.NewPromise()
+	if err != nil {
+		reject(err)
+		return promise
+	}
+
+	callback := sc.vu.RegisterCallback()
+	go func() {
+		result, err := func() (CryptoKeyGenerationResult, error) {
+			result, err := kd.DeriveKey()
+			if err != nil {
+				return nil, err
+			}
+
+			if result.IsKeyPair() {
+				return result, nil
+			}
+
+			cryptoKey, err := result.ResolveCryptoKey()
+			if err != nil {
+				return nil, NewError(OperationError, "usages cannot not be empty for a secret or private CryptoKey")
+			}
+
+			isSecretKey := cryptoKey.Type == SecretCryptoKeyType
+			isPrivateKey := cryptoKey.Type == PrivateCryptoKeyType
+			isUsagesEmpty := len(cryptoKey.Usages) == 0
+			if (isSecretKey || isPrivateKey) && isUsagesEmpty {
+				return nil, NewError(SyntaxError, "usages cannot not be empty for a secret or private CryptoKey")
+			}
+
+			return result, nil
+		}()
+
+		callback(func() error {
+			if err != nil {
+				reject(err)
+				return nil //nolint:nilerr // we return nil to indicate that the error was handled
+			}
+
+			resolve(result)
+			return nil
+		})
+	}()
+
+	return promise
 }
 
 // DeriveBits derives an array of bits from a base key.
