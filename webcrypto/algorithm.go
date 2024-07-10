@@ -184,6 +184,8 @@ func isRegisteredAlgorithm(algorithmName string, forOperation string) bool {
 		return isAesAlgorithm(algorithmName)
 	case OperationIdentifierSign, OperationIdentifierVerify:
 		return algorithmName == HMAC || algorithmName == ECDSA
+	case OperationIdentifierDeriveKey:
+		return algorithmName == ECDH || algorithmName == HKDF || algorithmName == PBKDF2
 	default:
 		return false
 	}
