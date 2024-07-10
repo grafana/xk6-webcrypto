@@ -227,6 +227,34 @@ func newKeyImporter(rt *sobek.Runtime, normalized Algorithm, params sobek.Value)
 	return ki, nil
 }
 
+// KeyDeriver is the interface implemented by the algorithms used to derive
+// cryptographic keys.
+type KeyDeriver interface {
+	DeriveKey() (CryptoKeyGenerationResult, error)
+}
+
+func newKeyDeriver(rt *sobek.Runtime, normalized Algorithm, params sobek.Value, baseKey sobek.Value, derivedKeyAlgorithm sobek.Value, extractable bool, keyUsages []CryptoKeyUsage) (KeyDeriver, error) {
+	var kd KeyDeriver
+	var err error
+
+	switch normalized.Name {
+	case ECDH:
+		kd, err = newECDHDeriveParams(rt, normalized, params)
+	case HKDF:
+		kd, err = newHKDFKeyDeriveParams(rt, normalized, params)
+	case PBKDF2:
+		kd, err = newPBKDF2KeyDeriveParams(rt, normalized, params)
+	default:
+		return nil, errors.New("key derive not implemented for algorithm " + normalized.Name)
+	}
+
+	if err != nil {
+		return nil, err
+	}
+
+	return kd, nil
+}
+
 // UsageIntersection returns the intersection of two slices of CryptoKeyUsage.
 //
 // It implements the algorithm described in the [specification] to
