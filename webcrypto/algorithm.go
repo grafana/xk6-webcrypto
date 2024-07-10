@@ -51,6 +51,12 @@ const (
 
 	// ECDH represents the ECDH algorithm.
 	ECDH = "ECDH"
+
+	// HKDF represents the HKDF algoithm.
+	HKDF = "HKDF"
+
+	// PBKDF2 represents the PBKDF2 algoithm.
+	PBKDF2 = "PBKDF2"
 )
 
 // HashAlgorithmIdentifier represents the name of a hash algorithm.
