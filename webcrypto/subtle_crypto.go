@@ -605,10 +605,16 @@ func (sc *SubtleCrypto) DeriveKey(
 	rt := sc.vu.Runtime()
 
 	var (
-		kd KeyDeriver
+		keyData []byte
+		kd      KeyDeriver
 	)
 
 	err := func() error {
+		ab, err := exportArrayBuffer(rt, baseKey)
+		if err != nil {
+			return err
+		}
+		copy(keyData, ab)
 		normalized, err := normalizeAlgorithm(rt, algorithm, OperationIdentifierDeriveKey)
 		if err != nil {
 			return err
