@@ -62,6 +62,7 @@ func TestExamplesInputOutput(t *testing.T) {
 		"../../examples/randomUUID.js",
 		"../../examples/generateKey",
 		"../../examples/derive_bits",
+		"../../examples/derive_key",
 		"../../examples/encrypt_decrypt",
 		"../../examples/sign_verify",
 		"../../examples/import_export",
