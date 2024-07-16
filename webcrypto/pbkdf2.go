@@ -20,3 +20,7 @@ func newPBKDF2KeyDeriveParams(rt *sobek.Runtime, normalized Algorithm, params so
 		Salt: []byte{},
 	}, nil
 }
+
+func (p PBKDF2Params) DeriveKey() (CryptoKeyGenerationResult, error){
+	return nil, nil
+}

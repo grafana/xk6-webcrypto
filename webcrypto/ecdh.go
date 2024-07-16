@@ -6,3 +6,7 @@ func newECDHDeriveParams(rt *sobek.Runtime, normalized Algorithm, params sobek.V
 	//TODO: add implmentation
 	return nil, nil
 }
+
+func (e *ECDHKeyDeriveParams) DeriveKey() (CryptoKeyGenerationResult, error){
+	return nil, nil
+}

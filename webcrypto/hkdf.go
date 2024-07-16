@@ -6,3 +6,7 @@ func newHKDFKeyDeriveParams(rt *sobek.Runtime, normalized Algorithm, params sobe
 	//TODO: add implmentation
 	return nil, nil
 }
+
+func (h HKDFParams) DeriveKey() (CryptoKeyGenerationResult, error){
+	return nil, nil
+}
