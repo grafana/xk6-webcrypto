@@ -651,13 +651,17 @@ func (sc *SubtleCrypto) DeriveKey(
 			if err = rt.ExportTo(baseKey, &bk); err != nil {
 				return nil, NewError(TypeError, "baseKey is not good")
 			}
+			baseKeyAlgorithmNameValue, err := traverseObject(rt, baseKey.ToObject(rt), "algorithm", "name")
+			if err != nil {
+				return nil, err
+			}
 
-			if normalizedAlgorithm.Name != bk.Type {
-				return nil, NewError(InvalidAccessError, "normalizedAlgorithm name is not equal to baseKey name")
+			if normalizedAlgorithm.Name != baseKeyAlgorithmNameValue.String() {
+				return nil, NewError(InvalidAccessError, "Key algorithm mismatch")
 			}
 
 			if !bk.ContainsUsage(DeriveKeyCryptoKeyUsage) {
-				return nil, NewError(InvalidAccessError, "baseKey does not contain deriveKey usage")
+				return nil, NewError(InvalidAccessError, "baseKey does not have deriveKey usage")
 			}
 
 			return nil, nil
