@@ -622,17 +622,18 @@ func (sc *SubtleCrypto) DeriveKey(
 ) *sobek.Promise {
 	rt := sc.vu.Runtime()
 	var normalizedAlgorithm, normalizedDerivedKeyAlgorithmImport, normalizedDerivedKeyAlgorithmLength Algorithm
+	var err error
 	var bk CryptoKey
-	err := func() error {
-		normalizedAlgorithm, err := normalizeAlgorithm(rt, algorithm, OperationIdentifierDeriveBits)
+	err = func() error {
+		normalizedAlgorithm, err = normalizeAlgorithm(rt, algorithm, OperationIdentifierDeriveBits)
 		if err != nil {
 			return err
 		}
-		normalizedDerivedKeyAlgorithmImport, err := normalizeAlgorithm(rt, derivedKeyType, OperationIdentifierImportKey)
+		normalizedDerivedKeyAlgorithmImport, err = normalizeAlgorithm(rt, derivedKeyType, OperationIdentifierImportKey)
 		if err != nil {
 			return err
 		}
-		normalizedDerivedKeyAlgorithmLength, err := normalizeAlgorithm(rt, derivedKeyType, OperationGetKeyLength)
+		normalizedDerivedKeyAlgorithmLength, err = normalizeAlgorithm(rt, derivedKeyType, OperationGetKeyLength)
 		if err != nil {
 			return err
 		}
@@ -648,6 +649,7 @@ func (sc *SubtleCrypto) DeriveKey(
 	callback := sc.vu.RegisterCallback()
 	go func() {
 		result, err := func() (CryptoKeyGenerationResult, error) {
+			fmt.Println(normalizedAlgorithm, normalizedDerivedKeyAlgorithmLength, normalizedDerivedKeyAlgorithmImport)
 			if err = rt.ExportTo(baseKey, &bk); err != nil {
 				return nil, NewError(TypeError, "baseKey is not good")
 			}
@@ -655,6 +657,7 @@ func (sc *SubtleCrypto) DeriveKey(
 			if err != nil {
 				return nil, err
 			}
+			fmt.Println(baseKeyAlgorithmNameValue.String())
 
 			if normalizedAlgorithm.Name != baseKeyAlgorithmNameValue.String() {
 				return nil, NewError(InvalidAccessError, "Key algorithm mismatch")
