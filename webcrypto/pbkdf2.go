@@ -39,5 +39,36 @@ func newPBKDF2KeyImportParams(rt *sobek.Runtime, normalized Algorithm, params so
 	}, nil
 }
 
+func (keyParams PBKDF2KeyImportParams) ImportKey(format KeyFormat, keyData []byte, keyUsages []CryptoKeyUsage) (*CryptoKey, error) {
+	for _, usage := range keyUsages {
+		switch usage {
+		case EncryptCryptoKeyUsage, DecryptCryptoKeyUsage, WrapKeyCryptoKeyUsage, UnwrapKeyCryptoKeyUsage, DeriveBitsCryptoKeyUsage, DeriveKeyCryptoKeyUsage:
+			continue
+		default:
+			return nil, NewError(SyntaxError, "invalid key usage: "+usage)
+		}
+	}
+	return &CryptoKey{
+		Algorithm: PBKDF2KeyAlgorithm{
+			Algorithm: keyParams.Algorithm,
+		},
+		Type:   SecretCryptoKeyType,
+		handle: keyData,
+	}, nil
+}
+
 // Ensure that EcKeyImportParams implements the KeyImporter interface.
 var _ KeyImporter = &PBKDF2KeyImportParams{}
+
+// PBKDF2KeyAlgorithm is the algorithm for PBKDF2 keys as defined in the [specification].
+//
+// [specification]: https://www.w3.org/TR/WebCryptoAPI/#dfn-PBKDF2KeyAlgorithm //TODO: update this to something real
+type PBKDF2KeyAlgorithm struct {
+	Algorithm
+}
+
+var _ hasAlg = (*PBKDF2KeyAlgorithm)(nil)
+
+func (aka PBKDF2KeyAlgorithm) alg() string {
+	return aka.Name
+}

@@ -649,7 +649,7 @@ func (sc *SubtleCrypto) DeriveKey(
 	callback := sc.vu.RegisterCallback()
 	go func() {
 		result, err := func() (CryptoKeyGenerationResult, error) {
-			fmt.Println(normalizedAlgorithm, normalizedDerivedKeyAlgorithmLength, normalizedDerivedKeyAlgorithmImport)
+			fmt.Println("IGNORE ME", normalizedAlgorithm, normalizedDerivedKeyAlgorithmLength, normalizedDerivedKeyAlgorithmImport)
 			if err = rt.ExportTo(baseKey, &bk); err != nil {
 				return nil, NewError(TypeError, "baseKey is not good")
 			}
@@ -657,7 +657,6 @@ func (sc *SubtleCrypto) DeriveKey(
 			if err != nil {
 				return nil, err
 			}
-			fmt.Println(baseKeyAlgorithmNameValue.String())
 
 			if normalizedAlgorithm.Name != baseKeyAlgorithmNameValue.String() {
 				return nil, NewError(InvalidAccessError, "Key algorithm mismatch")

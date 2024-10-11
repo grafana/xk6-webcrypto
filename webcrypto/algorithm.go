@@ -126,7 +126,7 @@ const (
 	OperationIdentifierDigest OperationIdentifier = "digest"
 
 	// OperationGetKeyLength represents the get key length operation.
-	OperationGetKeyLength OperationIdentifier = "getKeyLength"
+	OperationGetKeyLength OperationIdentifier = "get key length"
 )
 
 // normalizeAlgorithm normalizes the given algorithm following the
@@ -190,8 +190,10 @@ func isRegisteredAlgorithm(algorithmName string, forOperation string) bool {
 		return isAesAlgorithm(algorithmName)
 	case OperationIdentifierSign, OperationIdentifierVerify:
 		return algorithmName == HMAC || algorithmName == ECDSA
-	case OperationIdentifierDeriveKey, OperationGetKeyLength:
+	case OperationIdentifierDeriveKey:
 		return algorithmName == ECDH || algorithmName == HKDF || algorithmName == PBKDF2
+	case OperationGetKeyLength:
+		return isAesAlgorithm(algorithmName)
 	case OperationIdentifierDeriveBits:
 		return algorithmName == ECDH || algorithmName == HKDF || algorithmName == PBKDF2 || algorithmName == X25519
 	default:
