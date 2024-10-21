@@ -212,6 +212,20 @@ func TestSubtleCryptoDeriveBitsKeys(t *testing.T) {
 
 		assert.NoError(t, gotErr)
 	})
+	t.Run("pbkdf2", func(t *testing.T) {
+		t.Parallel()
+
+		ts := newConfiguredRuntime(t)
+
+		gotErr := ts.EventLoop.Start(func() error {
+			err := executeTestScripts(ts.VU.Runtime(), "./tests/derive_bits_keys", "pbkdf2_vectors.js", "pbkdf2.js")
+
+			return err
+		})
+
+		assert.NoError(t, gotErr)
+	})
+
 }
 
 func executeTestScripts(rt *sobek.Runtime, base string, scripts ...string) error {
