@@ -499,7 +499,7 @@ func deriveBitsHKDF() ([]byte, error) {
 	return nil, nil
 }
 
-func deriveBitsPBKDF2() ([]byte, error) {
+func deriveBitsPBKDF2(privateKey, publicKey CryptoKey) ([]byte, error) {
 	return nil, nil
 }
 
