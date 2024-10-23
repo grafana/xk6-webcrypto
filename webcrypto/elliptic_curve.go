@@ -498,6 +498,14 @@ func deriveBitsECDH(privateKey CryptoKey, publicKey CryptoKey) ([]byte, error) {
 	return pk.ECDH(pc)
 }
 
+func deriveBitsHKDF() ([]byte, error) {
+	return nil, nil
+}
+
+func deriveBitsPBKDF2(privateKey, publicKey CryptoKey) ([]byte, error) {
+	return nil, nil
+}
+
 // The ECDSAParams represents the object that should be passed as the algorithm
 // parameter into `SubtleCrypto.Sign` or `SubtleCrypto.Verify“ when using the
 // ECDSA algorithm.

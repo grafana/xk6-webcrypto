@@ -56,12 +56,23 @@ type HMACSignatureParams struct {
 	Name AlgorithmIdentifier
 }
 
+// ECDHKeyDeriveParams represents the object that should be passed as the algorithm
+// parameter into `SubtleCrypto.DeriveKey`, when using the ECDHKeyDerive algorithm.
+type ECDHKeyDeriveParams struct {
+	// Name should be set to AlgorithmKindECDH
+	Name AlgorithmIdentifier
+
+	// Public shoudl set the PublicKey part of a CryptoKeyPair
+	Public *CryptoKey
+}
+
 // PBKDF2Params represents the object that should be passed as the algorithm
 // parameter into `SubtleCrypto.DeriveKey`, when using the PBKDF2 algorithm.
 type PBKDF2Params struct {
 	// Name should be set to AlgorithmKindPbkdf2.
 	Name AlgorithmIdentifier
 
+	//TODO: This really needs fixed before I can call deriveKey DONE
 	// FIXME: should also include SHA-1, unfortunately
 	// Hash identifies the name of the digest algorithm to use.
 	// You can use any of the following:

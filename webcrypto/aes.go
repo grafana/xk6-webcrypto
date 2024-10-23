@@ -181,7 +181,7 @@ func (aip *AESImportParams) ImportKey(
 ) (*CryptoKey, error) {
 	for _, usage := range keyUsages {
 		switch usage {
-		case EncryptCryptoKeyUsage, DecryptCryptoKeyUsage, WrapKeyCryptoKeyUsage, UnwrapKeyCryptoKeyUsage:
+		case EncryptCryptoKeyUsage, DecryptCryptoKeyUsage, WrapKeyCryptoKeyUsage, UnwrapKeyCryptoKeyUsage, DeriveKeyCryptoKeyUsage, DeriveBitsCryptoKeyUsage:
 			continue
 		default:
 			return nil, NewError(SyntaxError, "invalid key usage: "+usage)

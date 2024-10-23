@@ -564,6 +564,24 @@ func (sc *SubtleCrypto) GenerateKey(
 	return promise
 }
 
+// [x] Let algorithm, baseKey, derivedKeyType, extractable and usages be the algorithm, baseKey, derivedKeyType, extractable and keyUsages parameters passed to the deriveKey method, respectively.
+// [x] Let normalizedAlgorithm be the result of normalizing an algorithm, with alg set to algorithm and op set to "deriveBits".
+// [x] If an error occurred, return a Promise rejected with normalizedAlgorithm.
+// [x] Let normalizedDerivedKeyAlgorithmImport be the result of normalizing an algorithm, with alg set to derivedKeyType and op set to "importKey".
+// [x] If an error occurred, return a Promise rejected with normalizedDerivedKeyAlgorithmImport.
+// [x] Let normalizedDerivedKeyAlgorithmLength be the result of normalizing an algorithm, with alg set to derivedKeyType and op set to "get key length".
+// [x] If an error occurred, return a Promise rejected with normalizedDerivedKeyAlgorithmLength.
+// [x] Let promise be a new Promise.
+// [x] Return promise and asynchronously perform the remaining steps.
+// [x] If the following steps or referenced procedures say to throw an error, reject promise with the returned error and then terminate the algorithm.
+// [ ] If the name member of normalizedAlgorithm is not equal to the name attribute of the [[algorithm]] internal slot of baseKey then throw an InvalidAccessError.
+// [ ] If the [[usages]] internal slot of baseKey does not contain an entry that is "deriveKey", then throw an InvalidAccessError.
+// [ ] Let length be the result of performing the get key length algorithm specified by normalizedDerivedKeyAlgorithmLength using derivedKeyType.
+// [ ] Let secret be the result of performing the derive bits operation specified by normalizedAlgorithm using key, algorithm and length.
+// [ ] Let result be the result of performing the import key operation specified by normalizedDerivedKeyAlgorithmImport using "raw" as format, secret as keyData, derivedKeyType as algorithm and using extractable and usages.
+// [ ] If the [[type]] internal slot of result is "secret" or "private" and usages is empty, then throw a SyntaxError.
+// [ ] Resolve promise with result.
+
 // DeriveKey can be used to derive a secret key from a master key.
 //
 // It takes as arguments some initial key material, the derivation
@@ -587,7 +605,7 @@ func (sc *SubtleCrypto) GenerateKey(
 // function: for example, for PBKDF2 it might be a password, imported as a `SubtleCrypto.CryptoKey`
 // using `SubtleCrypto.ImportKey`.
 //
-// The `derivedKeyAlgorithm` parameter should be one of:
+// The `derivedKeyType` parameter should be one of:
 //   - an `SubtleCrypto.HMACKeyGenParams` object
 //   - For AES-CTR, AES-CBC, AES-GCM, AES-KW: pass an `SubtleCrypto.AESKeyGenParams`
 //
@@ -595,17 +613,76 @@ func (sc *SubtleCrypto) GenerateKey(
 // using `SubtleCrypto.ExportKey` or `SubtleCrypto.WrapKey`.
 //
 // The `keyUsages` parameter is an array of strings indicating what the key can be used for.
-//
-//nolint:revive // remove the nolint directive when the method is implemented
 func (sc *SubtleCrypto) DeriveKey(
 	algorithm sobek.Value,
 	baseKey sobek.Value,
-	derivedKeyAlgorithm sobek.Value,
+	derivedKeyType sobek.Value,
 	extractable bool,
 	keyUsages []CryptoKeyUsage,
 ) *sobek.Promise {
-	// TODO: implementation
-	return nil
+	rt := sc.vu.Runtime()
+	var normalizedAlgorithm, normalizedDerivedKeyAlgorithmImport, normalizedDerivedKeyAlgorithmLength Algorithm
+	var err error
+	var bk CryptoKey
+	err = func() error {
+		normalizedAlgorithm, err = normalizeAlgorithm(rt, algorithm, OperationIdentifierDeriveBits)
+		if err != nil {
+			return err
+		}
+		normalizedDerivedKeyAlgorithmImport, err = normalizeAlgorithm(rt, derivedKeyType, OperationIdentifierImportKey)
+		if err != nil {
+			return err
+		}
+		normalizedDerivedKeyAlgorithmLength, err = normalizeAlgorithm(rt, derivedKeyType, OperationGetKeyLength)
+		if err != nil {
+			return err
+		}
+		return nil
+	}()
+
+	promise, resolve, reject := rt.NewPromise()
+	if err != nil {
+		reject(err)
+		return promise
+	}
+
+	callback := sc.vu.RegisterCallback()
+	go func() {
+		result, err := func() (CryptoKeyGenerationResult, error) {
+			//TODO: remove this when checks are all in, here to elminiate no use check
+			if normalizedAlgorithm.Name == "WHAT" && normalizedDerivedKeyAlgorithmImport.Name == "IS" && normalizedDerivedKeyAlgorithmLength.Name == "THIS" {
+			}
+			if err = rt.ExportTo(baseKey, &bk); err != nil {
+				return nil, NewError(TypeError, "baseKey is not good")
+			}
+			baseKeyAlgorithmNameValue, err := traverseObject(rt, baseKey.ToObject(rt), "algorithm", "name")
+			if err != nil {
+				return nil, err
+			}
+
+			if normalizedAlgorithm.Name != baseKeyAlgorithmNameValue.String() {
+				return nil, NewError(InvalidAccessError, "Key algorithm mismatch")
+			}
+
+			if !bk.ContainsUsage(DeriveKeyCryptoKeyUsage) {
+				return nil, NewError(InvalidAccessError, "baseKey does not have deriveKey usage")
+			}
+
+			return nil, nil
+		}()
+
+		callback(func() error {
+			if err != nil {
+				reject(err)
+				return nil //nolint:nilerr // we return nil to indicate that the error was handled
+			}
+
+			resolve(result)
+			return nil
+		})
+	}()
+
+	return promise
 }
 
 // DeriveBits derives an array of bits from a base key.

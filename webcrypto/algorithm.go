@@ -51,6 +51,15 @@ const (
 
 	// ECDH represents the ECDH algorithm.
 	ECDH = "ECDH"
+
+	// HKDF represents the HKDF algoithm.
+	HKDF = "HKDF"
+
+	// PBKDF2 represents the PBKDF2 algoithm.
+	PBKDF2 = "PBKDF2"
+
+	// X25519 represents the X25519 algoithm.
+	X25519 = "X25519"
 )
 
 // HashAlgorithmIdentifier represents the name of a hash algorithm.
@@ -115,6 +124,9 @@ const (
 
 	// OperationIdentifierDigest represents the digest operation.
 	OperationIdentifierDigest OperationIdentifier = "digest"
+
+	// OperationGetKeyLength represents the get key length operation.
+	OperationGetKeyLength OperationIdentifier = "get key length"
 )
 
 // normalizeAlgorithm normalizes the given algorithm following the
@@ -151,7 +163,7 @@ func normalizeAlgorithm(rt *sobek.Runtime, v sobek.Value, op AlgorithmIdentifier
 	algorithm.Name = strings.ToUpper(algorithm.Name)
 
 	if !isRegisteredAlgorithm(algorithm.Name, op) {
-		return Algorithm{}, NewError(NotSupportedError, "unsupported algorithm: "+algorithm.Name)
+		return Algorithm{}, NewError(NotSupportedError, "unsupported algorithm: "+algorithm.Name+" for operation: "+op)
 	}
 
 	return algorithm, nil
@@ -173,11 +185,17 @@ func isRegisteredAlgorithm(algorithmName string, forOperation string) bool {
 			algorithmName == HMAC ||
 			isEllipticCurve(algorithmName)
 	case OperationIdentifierExportKey, OperationIdentifierImportKey:
-		return isAesAlgorithm(algorithmName) || algorithmName == HMAC || isEllipticCurve(algorithmName)
+		return isRSAAlgorithm(algorithmName) || isAesAlgorithm(algorithmName) || algorithmName == HMAC || isEllipticCurve(algorithmName) || algorithmName == PBKDF2 || algorithmName == HKDF
 	case OperationIdentifierEncrypt, OperationIdentifierDecrypt:
 		return isAesAlgorithm(algorithmName)
 	case OperationIdentifierSign, OperationIdentifierVerify:
 		return algorithmName == HMAC || algorithmName == ECDSA
+	case OperationIdentifierDeriveKey:
+		return algorithmName == ECDH || algorithmName == HKDF || algorithmName == PBKDF2
+	case OperationGetKeyLength:
+		return isAesAlgorithm(algorithmName)
+	case OperationIdentifierDeriveBits:
+		return algorithmName == ECDH || algorithmName == HKDF || algorithmName == PBKDF2 || algorithmName == X25519
 	default:
 		return false
 	}
@@ -189,6 +207,11 @@ func isAesAlgorithm(algorithmName string) bool {
 
 func isHashAlgorithm(algorithmName string) bool {
 	return algorithmName == SHA1 || algorithmName == SHA256 || algorithmName == SHA384 || algorithmName == SHA512
+}
+
+func isRSAAlgorithm(algorithmName string) bool {
+	//TODO: make constants for these
+	return algorithmName == "RSASSA-PKCS1-v1_5" || algorithmName == "RSA-PSS" || algorithmName == "RSA-OAEP"
 }
 
 // hasAlg an internal interface that helps us to identify
