@@ -76,7 +76,7 @@ function run_test(algorithmNames, slowTest) {
                     assert_goodCryptoKey(result, algorithm, extractable, usages, "secret");
                 }
             }, function(err) {
-                assert_unreached("Threw an unexpected error: " + JSON.stringify(err) + " -- " + JSON.stringify(algorithm) + " usages: " + JSON.stringify(usages));
+                assert_unreached("Threw an unexpected error: " + JSON.stringify(err) + " -- " + JSON.stringify(algorithm));
             });
     }
 
