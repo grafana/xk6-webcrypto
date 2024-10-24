@@ -446,7 +446,7 @@ func (sc *SubtleCrypto) Digest(algorithm sobek.Value, data sobek.Value) *sobek.P
 		var ok bool
 		hashFn, ok = getHashFn(normalized.Name)
 		if !ok {
-			return NewError(NotSupportedError, "unsupported algorithm: "+normalized.Name)
+			return NewError(NotSupportedError, "unsupported algorithm, can't map hash function: "+normalized.Name)
 		}
 
 		return nil
@@ -921,6 +921,8 @@ func (sc *SubtleCrypto) ExportKey( //nolint:funlen // we have a lot of error han
 			keyExporter = exportHMACKey
 		case ECDH, ECDSA:
 			keyExporter = exportECKey
+		case RSASsaPkcs1v15, RSAOaep, RSAPss:
+			keyExporter = exportRSAKey
 		default:
 			return NewError(NotSupportedError, "unsupported algorithm "+algorithm.Name)
 		}

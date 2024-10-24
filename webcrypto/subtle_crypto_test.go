@@ -97,6 +97,20 @@ func TestSubtleCryptoImportExportKey(t *testing.T) {
 
 		assert.NoError(t, gotErr)
 	})
+
+	t.Run("rsa", func(t *testing.T) {
+		t.Parallel()
+
+		ts := newConfiguredRuntime(t)
+
+		gotErr := ts.EventLoop.Start(func() error {
+			err := executeTestScripts(ts.VU.Runtime(), "./tests/import_export", "rsa_importKey.js")
+
+			return err
+		})
+
+		assert.NoError(t, gotErr)
+	})
 }
 
 func TestSubtleCryptoEncryptDecrypt(t *testing.T) {
@@ -156,6 +170,23 @@ func TestSubtleCryptoEncryptDecrypt(t *testing.T) {
 
 		assert.NoError(t, gotErr)
 	})
+
+	t.Run("RSA-OAEP", func(t *testing.T) {
+		t.Parallel()
+
+		ts := newConfiguredRuntime(t)
+
+		gotErr := ts.EventLoop.Start(func() error {
+			err := executeTestScripts(ts.VU.Runtime(), "./tests/encrypt_decrypt", "rsa_vectors.js", "rsa.js")
+			require.NoError(t, err)
+
+			_, err = ts.VU.Runtime().RunString(`run_test()`)
+
+			return err
+		})
+
+		assert.NoError(t, gotErr)
+	})
 }
 
 func TestSubtleCryptoSignVerify(t *testing.T) {
@@ -185,6 +216,40 @@ func TestSubtleCryptoSignVerify(t *testing.T) {
 
 		gotErr := ts.EventLoop.Start(func() error {
 			err := executeTestScripts(ts.VU.Runtime(), "./tests/sign_verify", "ecdsa_vectors.js", "ecdsa.js")
+			require.NoError(t, err)
+
+			_, err = ts.VU.Runtime().RunString(`run_test()`)
+
+			return err
+		})
+
+		assert.NoError(t, gotErr)
+	})
+
+	t.Run("RSA-PKCS", func(t *testing.T) {
+		t.Parallel()
+
+		ts := newConfiguredRuntime(t)
+
+		gotErr := ts.EventLoop.Start(func() error {
+			err := executeTestScripts(ts.VU.Runtime(), "./tests/sign_verify", "rsa_pkcs_vectors.js", "rsa.js")
+			require.NoError(t, err)
+
+			_, err = ts.VU.Runtime().RunString(`run_test()`)
+
+			return err
+		})
+
+		assert.NoError(t, gotErr)
+	})
+
+	t.Run("RSA-PSS", func(t *testing.T) {
+		t.Parallel()
+
+		ts := newConfiguredRuntime(t)
+
+		gotErr := ts.EventLoop.Start(func() error {
+			err := executeTestScripts(ts.VU.Runtime(), "./tests/sign_verify", "rsa_pss_vectors.js", "rsa.js")
 			require.NoError(t, err)
 
 			_, err = ts.VU.Runtime().RunString(`run_test()`)
