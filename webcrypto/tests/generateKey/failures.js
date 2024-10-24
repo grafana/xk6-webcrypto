@@ -104,8 +104,7 @@ function run_test(algorithmNames) {
             });
         } else if (algorithmName.toUpperCase().substring(0, 3) === "RSA") {
             [new Uint8Array([1]), new Uint8Array([1,0,0])].forEach(function(publicExponent) {
-                // TODO: uncomment after implementing support of the public exponent setting
-                // results.push({name: algorithmName, hash: "SHA-256", modulusLength: 1024, publicExponent: publicExponent});
+                results.push({name: algorithmName, hash: "SHA-256", modulusLength: 1024, publicExponent: publicExponent});
             });
         } else if (algorithmName.toUpperCase().substring(0, 2) === "EC") {
             ["P-512", "Curve25519"].forEach(function(curveName) {
