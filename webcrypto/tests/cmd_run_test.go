@@ -99,6 +99,25 @@ func TestExamplesInputOutput(t *testing.T) {
 	}
 }
 
+func TestHandlePanic(t *testing.T) {
+	t.Parallel()
+
+	script, err := os.ReadFile("handle-panic.js") //nolint:forbidigo // it's a test case
+	require.NoError(t, err)
+
+	ts := getSingleFileTestState(t, string(script), []string{"-v", "--log-output=stdout"}, 0)
+
+	cmd.ExecuteWithGlobalState(ts.GlobalState)
+
+	stdout := ts.Stdout.String()
+
+	assert.Contains(t, stdout, "1 complete and 0 interrupted iterations")
+	// We expect the panic message to be printed
+	assert.Contains(t, stdout, "Uncaught")
+
+	assert.Empty(t, ts.Stderr.String())
+}
+
 func getFiles(t *testing.T, path string) []string {
 	t.Helper()
 
