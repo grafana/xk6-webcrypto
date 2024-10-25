@@ -40,7 +40,7 @@ type SubtleCrypto struct {
 // The `data` parameter should contain the data to be encryption.
 func (sc *SubtleCrypto) Encrypt( //nolint:dupl // we have two similar methods
 	algorithm, key, data sobek.Value,
-) *sobek.Promise {
+) (*sobek.Promise, error) {
 	rt := sc.vu.Runtime()
 
 	var (
@@ -89,8 +89,8 @@ func (sc *SubtleCrypto) Encrypt( //nolint:dupl // we have two similar methods
 
 	promise, resolve, reject := rt.NewPromise()
 	if err != nil {
-		reject(err)
-		return promise
+		err := reject(err)
+		return promise, err
 	}
 
 	callback := sc.vu.RegisterCallback()
@@ -99,16 +99,14 @@ func (sc *SubtleCrypto) Encrypt( //nolint:dupl // we have two similar methods
 
 		callback(func() error {
 			if err != nil {
-				reject(err)
-				return nil //nolint:nilerr // we return nil to indicate that the error was handled
+				return reject(err)
 			}
 
-			resolve(rt.NewArrayBuffer(result))
-			return nil
+			return resolve(rt.NewArrayBuffer(result))
 		})
 	}()
 
-	return promise
+	return promise, nil
 }
 
 // Decrypt decrypts some encrypted data.
@@ -133,7 +131,7 @@ func (sc *SubtleCrypto) Encrypt( //nolint:dupl // we have two similar methods
 // The `data` parameter should contain the data to be decrypted.
 func (sc *SubtleCrypto) Decrypt( //nolint:dupl // we have two similar methods
 	algorithm, key, data sobek.Value,
-) *sobek.Promise {
+) (*sobek.Promise, error) {
 	rt := sc.vu.Runtime()
 
 	var (
@@ -181,8 +179,8 @@ func (sc *SubtleCrypto) Decrypt( //nolint:dupl // we have two similar methods
 
 	promise, resolve, reject := rt.NewPromise()
 	if err != nil {
-		reject(err)
-		return promise
+		err := reject(err)
+		return promise, err
 	}
 
 	callback := sc.vu.RegisterCallback()
@@ -191,16 +189,14 @@ func (sc *SubtleCrypto) Decrypt( //nolint:dupl // we have two similar methods
 
 		callback(func() error {
 			if err != nil {
-				reject(err)
-				return nil //nolint:nilerr // we return nil to indicate that the error was handled
+				return reject(err)
 			}
 
-			resolve(rt.NewArrayBuffer(result))
-			return nil
+			return resolve(rt.NewArrayBuffer(result))
 		})
 	}()
 
-	return promise
+	return promise, nil
 }
 
 // Sign generates a digital signature.
@@ -223,7 +219,7 @@ func (sc *SubtleCrypto) Decrypt( //nolint:dupl // we have two similar methods
 // `algorithm` identifies a public-key cryptosystem, this is the private key.
 //
 // The `data` parameter should contain the data to be signed.
-func (sc *SubtleCrypto) Sign(algorithm, key, data sobek.Value) *sobek.Promise {
+func (sc *SubtleCrypto) Sign(algorithm, key, data sobek.Value) (*sobek.Promise, error) {
 	rt := sc.vu.Runtime()
 
 	var (
@@ -276,8 +272,8 @@ func (sc *SubtleCrypto) Sign(algorithm, key, data sobek.Value) *sobek.Promise {
 
 	promise, resolve, reject := rt.NewPromise()
 	if err != nil {
-		reject(err)
-		return promise
+		err := reject(err)
+		return promise, err
 	}
 
 	callback := sc.vu.RegisterCallback()
@@ -286,16 +282,14 @@ func (sc *SubtleCrypto) Sign(algorithm, key, data sobek.Value) *sobek.Promise {
 
 		callback(func() error {
 			if err != nil {
-				reject(err)
-				return nil //nolint:nilerr // we return nil to indicate that the error was handled
+				return reject(err)
 			}
 
-			resolve(rt.NewArrayBuffer(signature))
-			return nil
+			return resolve(rt.NewArrayBuffer(signature))
 		})
 	}()
 
-	return promise
+	return promise, nil
 }
 
 // Verify verifies a digital signature.
@@ -321,7 +315,7 @@ func (sc *SubtleCrypto) Sign(algorithm, key, data sobek.Value) *sobek.Promise {
 // The `signature` parameter should contain the signature to be verified.
 //
 // The `data` parameter should contain the original signed data.
-func (sc *SubtleCrypto) Verify(algorithm, key, signature, data sobek.Value) *sobek.Promise {
+func (sc *SubtleCrypto) Verify(algorithm, key, signature, data sobek.Value) (*sobek.Promise, error) {
 	rt := sc.vu.Runtime()
 
 	var (
@@ -375,8 +369,8 @@ func (sc *SubtleCrypto) Verify(algorithm, key, signature, data sobek.Value) *sob
 
 	promise, resolve, reject := rt.NewPromise()
 	if err != nil {
-		reject(err)
-		return promise
+		err := reject(err)
+		return promise, err
 	}
 
 	callback := sc.vu.RegisterCallback()
@@ -385,16 +379,14 @@ func (sc *SubtleCrypto) Verify(algorithm, key, signature, data sobek.Value) *sob
 
 		callback(func() error {
 			if err != nil {
-				reject(err)
-				return nil //nolint:nilerr // we return nil to indicate that the error was handled
+				return reject(err)
 			}
 
-			resolve(verified)
-			return nil
+			return resolve(verified)
 		})
 	}()
 
-	return promise
+	return promise, nil
 }
 
 // Digest generates a digest of the given data.
@@ -415,7 +407,7 @@ func (sc *SubtleCrypto) Verify(algorithm, key, signature, data sobek.Value) *sob
 //   - SHA-512
 //
 // The `data` parameter should contain the data to be digested.
-func (sc *SubtleCrypto) Digest(algorithm sobek.Value, data sobek.Value) *sobek.Promise {
+func (sc *SubtleCrypto) Digest(algorithm sobek.Value, data sobek.Value) (*sobek.Promise, error) {
 	rt := sc.vu.Runtime()
 
 	var (
@@ -454,8 +446,8 @@ func (sc *SubtleCrypto) Digest(algorithm sobek.Value, data sobek.Value) *sobek.P
 
 	promise, resolve, reject := rt.NewPromise()
 	if err != nil {
-		reject(err)
-		return promise
+		err := reject(err)
+		return promise, err
 	}
 
 	callback := sc.vu.RegisterCallback()
@@ -466,16 +458,14 @@ func (sc *SubtleCrypto) Digest(algorithm sobek.Value, data sobek.Value) *sobek.P
 
 		callback(func() error {
 			if err != nil {
-				reject(err)
-				return nil //nolint:nilerr // we return nil to indicate that the error was handled
+				return reject(err)
 			}
 
-			resolve(rt.NewArrayBuffer(digest))
-			return nil
+			return resolve(rt.NewArrayBuffer(digest))
 		})
 	}()
 
-	return promise
+	return promise, nil
 }
 
 // GenerateKey generate a new key (for symmetric algorithms) or key pair (for public-key algorithms).
@@ -498,7 +488,7 @@ func (sc *SubtleCrypto) Digest(algorithm sobek.Value, data sobek.Value) *sobek.P
 // The `keyUsages` parameter is an array of strings indicating what the key can be used for.
 func (sc *SubtleCrypto) GenerateKey(
 	algorithm sobek.Value, extractable bool, keyUsages []CryptoKeyUsage,
-) *sobek.Promise {
+) (*sobek.Promise, error) {
 	rt := sc.vu.Runtime()
 
 	var keyGenerator KeyGenerator
@@ -519,8 +509,8 @@ func (sc *SubtleCrypto) GenerateKey(
 
 	promise, resolve, reject := rt.NewPromise()
 	if err != nil {
-		reject(err)
-		return promise
+		err := reject(err)
+		return promise, err
 	}
 
 	callback := sc.vu.RegisterCallback()
@@ -552,16 +542,14 @@ func (sc *SubtleCrypto) GenerateKey(
 
 		callback(func() error {
 			if err != nil {
-				reject(err)
-				return nil //nolint:nilerr // we return nil to indicate that the error was handled
+				return reject(err)
 			}
 
-			resolve(result)
-			return nil
+			return resolve(result)
 		})
 	}()
 
-	return promise
+	return promise, nil
 }
 
 // DeriveKey can be used to derive a secret key from a master key.
@@ -638,7 +626,7 @@ func (sc *SubtleCrypto) DeriveBits( //nolint:funlen,gocognit // we have a lot of
 	algorithm sobek.Value,
 	baseKey sobek.Value,
 	length int,
-) *sobek.Promise {
+) (*sobek.Promise, error) {
 	rt := sc.vu.Runtime()
 
 	var (
@@ -721,8 +709,8 @@ func (sc *SubtleCrypto) DeriveBits( //nolint:funlen,gocognit // we have a lot of
 
 	promise, resolve, reject := rt.NewPromise()
 	if err != nil {
-		reject(err)
-		return promise
+		err := reject(err)
+		return promise, err
 	}
 
 	callback := sc.vu.RegisterCallback()
@@ -746,16 +734,14 @@ func (sc *SubtleCrypto) DeriveBits( //nolint:funlen,gocognit // we have a lot of
 
 		callback(func() error {
 			if err != nil {
-				reject(err)
-				return nil //nolint:nilerr // we return nil to indicate that the error was handled
+				return reject(err)
 			}
 
-			resolve(rt.NewArrayBuffer(result))
-			return nil
+			return resolve(rt.NewArrayBuffer(result))
 		})
 	}()
 
-	return promise
+	return promise, nil
 }
 
 // ImportKey imports a key: that is, it takes as input a key in an external, portable
@@ -782,7 +768,7 @@ func (sc *SubtleCrypto) ImportKey( //nolint:funlen // we have a lot of error han
 	algorithm sobek.Value,
 	extractable bool,
 	keyUsages []CryptoKeyUsage,
-) *sobek.Promise {
+) (*sobek.Promise, error) {
 	rt := sc.vu.Runtime()
 
 	var (
@@ -824,8 +810,8 @@ func (sc *SubtleCrypto) ImportKey( //nolint:funlen // we have a lot of error han
 
 	promise, resolve, reject := rt.NewPromise()
 	if err != nil {
-		reject(err)
-		return promise
+		err := reject(err)
+		return promise, err
 	}
 
 	callback := sc.vu.RegisterCallback()
@@ -851,16 +837,14 @@ func (sc *SubtleCrypto) ImportKey( //nolint:funlen // we have a lot of error han
 
 		callback(func() error {
 			if err != nil {
-				reject(err)
-				return nil //nolint:nilerr // we return nil to indicate that the error was handled
+				return reject(err)
 			}
 
-			resolve(result)
-			return nil
+			return resolve(result)
 		})
 	}()
 
-	return promise
+	return promise, nil
 }
 
 // ExportKey exports a key: that is, it takes as input a CryptoKey object and gives
@@ -877,10 +861,10 @@ func (sc *SubtleCrypto) ImportKey( //nolint:funlen // we have a lot of error han
 //
 // The `format` parameter identifies the format of the key data.
 // The `key` parameter is the key to export, as a CryptoKey object.
-func (sc *SubtleCrypto) ExportKey( //nolint:funlen // we have a lot of error handling
+func (sc *SubtleCrypto) ExportKey(
 	format KeyFormat,
 	key sobek.Value,
-) *sobek.Promise {
+) (*sobek.Promise, error) {
 	rt := sc.vu.Runtime()
 
 	var (
@@ -930,8 +914,8 @@ func (sc *SubtleCrypto) ExportKey( //nolint:funlen // we have a lot of error han
 
 	promise, resolve, reject := rt.NewPromise()
 	if err != nil {
-		reject(err)
-		return promise
+		err := reject(err)
+		return promise, err
 	}
 
 	callback := sc.vu.RegisterCallback()
@@ -940,27 +924,23 @@ func (sc *SubtleCrypto) ExportKey( //nolint:funlen // we have a lot of error han
 
 		callback(func() error {
 			if err != nil {
-				reject(err)
-				return nil //nolint:nilerr // we return nil to indicate that the error was handled
+				return reject(err)
 			}
 
 			if !isBinaryExportedFormat(format) {
-				resolve(result)
-				return nil
+				return resolve(result)
 			}
 
 			b, ok := result.([]byte)
 			if !ok {
-				reject(NewError(ImplementationError, "for "+format+" []byte expected as result"))
-				return nil
+				return reject(NewError(ImplementationError, "for "+format+" []byte expected as result"))
 			}
 
-			resolve(rt.NewArrayBuffer(b))
-			return nil
+			return resolve(rt.NewArrayBuffer(b))
 		})
 	}()
 
-	return promise
+	return promise, nil
 }
 
 func isBinaryExportedFormat(format KeyFormat) bool {
@@ -1001,9 +981,9 @@ func (sc *SubtleCrypto) WrapKey(
 	key sobek.Value,
 	wrappingKey sobek.Value,
 	wrapAlgorithm sobek.Value,
-) *sobek.Promise {
+) (*sobek.Promise, error) {
 	// TODO: implementation
-	return nil
+	return nil, errors.New("not implemented")
 }
 
 // UnwrapKey "unwraps" a key.
@@ -1059,7 +1039,7 @@ func (sc *SubtleCrypto) UnwrapKey(
 	unwrappedKeyAlgo sobek.Value,
 	extractable bool,
 	keyUsages []CryptoKeyUsage,
-) *sobek.Promise {
+) (*sobek.Promise, error) {
 	// TODO: implementation
-	return nil
+	return nil, errors.New("not implemented")
 }
