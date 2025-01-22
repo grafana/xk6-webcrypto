@@ -1,5 +1,8 @@
 # xk6-webcrypto
 
+> [!WARNING]
+> The `xk6-webcrypto` extension [has been merged](https://github.com/grafana/k6/pull/4188) to the [main k6 repository](https://github.com/grafana/k6). Please contribute and [open issues there](https://github.com/grafana/k6/issues). This repository is no longer maintained.
+
 This is an implementation of the [WebCrypto API](https://developer.mozilla.org/en-US/docs/Web/API/Web_Crypto_API) specification for k6.
 
 ## Current state
